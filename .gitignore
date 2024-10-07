@@ -396,3 +396,38 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# Ignore compiled binaries
+*.class
+*.o
+*.dll
+*.exe
+
+# Ignore build output directories
+/bin/
+/build/
+/dist/
+
+# Ignore package manager directories
+/node_modules/
+/packages/
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+
+# Ignore log files
+*.log
+
+# Ignore temporary files
+*.tmp
+*.bak
+*.swp
+
+# Exclude all images
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.svg
