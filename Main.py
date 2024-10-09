@@ -2,10 +2,18 @@ from tkinter import Label, filedialog, Canvas, Button, Tk
 from PIL import Image, ImageTk
 import numpy as np 
 import cv2
+import scipy.io
 
 class CropApp:
-    def __init__(self, root):
-        self.mask = np.ones((434, 636))
+    def __init__(self, root, uiWidth=434, uiHeight=636):
+        self.mat_file_is_open = False
+        self.num_pacient = 0
+        self.img_pacient = 0
+        self.mat_file = None
+        
+        self.uiWidth = uiWidth
+        self.uiHeight = uiHeight
+        self.mask = np.ones((uiWidth, uiHeight))
         self.image = None
         self.image_for_mask_multiplication = None
         self.lasx, self.lasy = 0, 0
@@ -13,15 +21,30 @@ class CropApp:
 
         self.app = root
         self.app.title('CROP')
-        self.app.geometry('500x700')
+        self.app.geometry('700x700')
         self.title = Label(self.app, text='CROP THE IMAGE', font='arial 30 bold', fg='#068481')
         self.title.pack()
 
-        self.image_area = Canvas(self.app, width=434, height=636, bg='#C8C8C8')
+        self.image_area = Canvas(self.app, width=uiWidth, height=uiHeight, bg='#C8C8C8')
         self.image_area.pack(pady=(10,0))
 
         self.open_image = Button(self.app, width=20, text='OPEN IMAGE', font='none 12', command=self.openAndPut)
         self.open_image.pack(pady=(10,5))
+        
+        self.open_mat = Button(self.app, width=20, text='OPEN MAT DATASET', font='none 12', command=self.read_mat_files)
+        self.open_mat.pack(pady=(10,5))
+        
+        self.next_pacient = Button(self.app, width=20, text='NEXT PACIENT', font='none 12', command=self.next_mat_pacient)
+        self.next_pacient.pack(pady=(10,5))
+        
+        self.previous_pacient = Button(self.app, width=20, text='PREVIOUS PACIENT', font='none 12', command=self.previous_mat_pacient)
+        self.previous_pacient.pack(pady=(10,5))
+
+        self.next_pacient_image = Button(self.app, width=20, text='NEXT PACIENT IMAGE', font='none 12', command=self.next_mat_pacient_image)
+        self.next_pacient_image.pack(pady=(10,5))
+        
+        self.previous_pacient_image = Button(self.app, width=20, text='PREVIOUS PACIENT IMAGE', font='none 12', command=self.previous_mat_pacient_image)
+        self.previous_pacient_image.pack(pady=(10,5))
 
         self.crop_area = Button(self.app, width=20, text='SELECT AREA', font='none 12', command=self.select_area)
         self.crop_area.pack(pady=(0,5))
@@ -33,11 +56,13 @@ class CropApp:
         self.save_image.pack()
 
     def openAndPut(self):
+        self.mat_file_is_open = False
+        self.mat_file = None
         path = filedialog.askopenfilename()
         if path:
             self.image = Image.open(path)
             self.image_for_mask_multiplication = Image.open(path)
-            self.image = self.image.resize((434 , 636), Image.LANCZOS)
+            self.image = self.image.resize((self.uiWidth , self.uiHeight), Image.LANCZOS)
             self.image_for_mask_multiplication = self.image_for_mask_multiplication.resize((434, 636), Image.LANCZOS)
             self.image = ImageTk.PhotoImage(self.image)
             self.image_area.create_image(0, 0, image=self.image, anchor='nw')
@@ -73,11 +98,11 @@ class CropApp:
         h, w = im_th.shape[:2]
         mask = np.zeros((h+2, w+2), np.uint8)
         cv2.floodFill(im_floodfill, mask, (0,0), (255,255,255))
-        im_floodfill = np.abs(im_floodfill-np.ones((434 ,636))*255)
+        im_floodfill = np.abs(im_floodfill-np.ones((self.uiWidth ,self.uiHeight))*255)
         return im_floodfill
 
     def show_mask(self):
-        mask_3_channels = np.ones((434, 636, 3)) 
+        mask_3_channels = np.ones((self.uiHeight, self.uiHeight, 3)) 
 
         image_mattt = (self.mask * 255).astype(np.uint8)
         the_real_mask = self.retrun_shape(image_mattt)
@@ -106,7 +131,73 @@ class CropApp:
         if path_save:
             self.img.save(str(path_save), "PNG")
 
+    def read_mat_files(self, num_pacient=0, img_pacient=0):
+        
+        if not self.mat_file_is_open:
+            path = filedialog.askopenfilename()
+            self.mat_file = path
+        else:
+            path = self.mat_file
+
+        if path:
+            
+            #flag to indicate that a .mat is open
+            self.mat_file_is_open = True
+            
+            #load matrix into data variable
+            data = scipy.io.loadmat(path)
+
+            #get the data array
+            data_array = data['data'] 
+
+            #get the first input
+            input = data_array[0, num_pacient]
+            
+            #get the images from the input
+            mat_imagens = input['images']
+            mat_image = mat_imagens[img_pacient]
+
+            # Convert the image to a format usable by PIL
+            mat_image = np.array(mat_image)
+
+            # Convert the NumPy array to an Image
+            pil_image = Image.fromarray(mat_image)
+
+            # Resize if necessary
+            pil_image = pil_image.resize((self.uiWidth, self.uiHeight), Image.LANCZOS)
+
+            # Update the image references
+            self.image = ImageTk.PhotoImage(pil_image)
+            self.image_for_mask_multiplication = pil_image
+
+            # Display the image in the Canvas widget
+            self.image_area.create_image(0, 0, image=self.image, anchor='nw')
+
+
+    def next_mat_pacient(self):
+        if self.mat_file_is_open:
+            self.read_mat_files(self.num_pacient+1, self.img_pacient)
+            self.num_pacient += 1
+            self.img_pacient = 0
+            
+    def next_mat_pacient_image(self):
+        if self.mat_file_is_open:
+            self.read_mat_files(self.num_pacient, self.img_pacient+1)
+            self.img_pacient += 1
+    
+    def previous_mat_pacient(self):
+        if self.mat_file_is_open:
+            self.read_mat_files(self.num_pacient+1, self.img_pacient)
+            self.num_pacient -= 1
+            self.img_pacient = 0
+            
+    def previous_mat_pacient_image(self):
+        if self.mat_file_is_open:
+            self.read_mat_files(self.num_pacient, self.img_pacient+1)
+            self.img_pacient -= 1
+    
+
 if __name__ == "__main__":
     root = Tk()
-    app = CropApp(root)
+    app = CropApp(root, 636, 434)
     root.mainloop()
