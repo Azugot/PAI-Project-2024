@@ -167,6 +167,7 @@ class CropApp:
             self.roiOn = True
             self.chooseRoi.config(text="END SELECT ROI")
             self.imageArea.bind("<Button-1>", self.drawROI)
+    
           
     def drawROI(self, event):
         if self.roiOn:
@@ -176,7 +177,8 @@ class CropApp:
             self.startY = event.y
             
             self.areaROI = self.imageArea.create_rectangle(self.startX-14, self.startY-14, self.startX+14, self.startY+14, outline="red", width=2)
-        
+    
+    #TODO: Fix this method for generic Images    
     def showROI(self):
         if self.areaROI:
             self.imageArea.itemconfig(self.areaROI, outline="green")
