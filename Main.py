@@ -43,18 +43,20 @@ class CropApp:
 
         self.nextPatientImage = Button(self.app, width=20, text='NEXT PATIENT IMAGE', font='none 12', command=self.nextMatPatientImage)
         self.previousPatientImage = Button(self.app, width=20, text='PREVIOUS PATIENT IMAGE', font='none 12', command=self.previousMatPatientImage)
-
-        self.showArea = Button(self.app, width=20, text='SHOW AREA', font='none 12', command=self.showMask)
         
-        self.chooseRoi = Button(self.app, width=20, text='SELECT ROI', font='none 12', command=self.toggleRoi)
+        self.chooseRoi = Button(self.app, width=20, text='SELECT ROI', font='none 12', command=self.toggleROI)
 
-        #self.saveSelectedROI = Button(self.app, width=20, text='SAVE ROI', font='none 12', command=self.saveROI)
+        self.showArea = Button(self.app, width=20, text='SHOW ROI', font='none 12', command=self.showROI)
+        
+        self.saveSelectedROI = Button(self.app, width=20, text='SAVE ROI', font='none 12', command=self.saveROI)
 
 
         # Grid Layout
         self.imageArea.grid(row=0, column=0)
         self.showArea.grid(row=1, column=0)
         self.chooseRoi.grid(row=2, column=0)
+        self.saveSelectedROI.grid(row=3, column=0)
+
         
         self.previousPatientImage.grid(row=0, column=1)
         self.nextPatientImage.grid(row=0, column=2)
@@ -64,7 +66,6 @@ class CropApp:
         
         self.openMat.grid(row=3, column=1)
         self.openImage.grid(row=4, column=1)
-        #self.saveSelectedROI.grid()
         
     def openAndPut(self):
         self.matFileIsOpen = False
@@ -100,31 +101,6 @@ class CropApp:
         cv2.floodFill(imFloodfill, mask, (0,0), (255,255,255))
         imFloodfill = np.abs(imFloodfill-np.ones((self.uiWidth ,self.uiHeight))*255)
         return imFloodfill
-
-    def showMask(self):
-        mask3Channels = np.ones((self.uiHeight, self.uiHeight, 3)) 
-
-        imageMattt = (self.mask * 255).astype(np.uint8)
-        theRealMask = self.returnShape(imageMattt)
-        mask3Channels[:,:,0] = theRealMask/255
-        mask3Channels[:,:,1] = theRealMask/255
-        mask3Channels[:,:,2] = theRealMask/255
-
-        realArea = np.array(self.imageForMaskMultiplication) * mask3Channels
-        realArea = Image.fromarray(np.uint8(realArea)).convert('RGB')
-        
-        self.img = realArea.convert("RGBA")
-        datas = self.img.getdata()
-
-        newData = []
-        for item in datas:
-            if item[0] == 0 and item[1] == 0 and item[2] == 0:
-                newData.append((255, 255, 255, 0))
-            else:
-                newData.append(item)
-
-        self.img.putdata(newData)
-        self.img.show()
 
     def readMatFiles(self, numPatient=0, imgPatient=0):
         
@@ -168,12 +144,15 @@ class CropApp:
             # Display the image in the Canvas widget
             self.imageArea.create_image(0, 0, image=self.image, anchor='nw')
 
+    def saveROI(self):
+        pass
+
     def deleteROIarea(self):
         if self.areaROI:
             self.imageArea.delete(self.areaROI)
             self.areaROI = None
 
-    def toggleRoi(self):
+    def toggleROI(self):
         if self.roiOn:
             self.roiOn = False
             self.chooseRoi.config(text="SELECT ROI")
@@ -182,11 +161,10 @@ class CropApp:
         else:
             self.roiOn = True
             self.chooseRoi.config(text="END SELECT ROI")
-            self.imageArea.bind("<Button-1>", self.drawRoi)
+            self.imageArea.bind("<Button-1>", self.drawROI)
             self.deleteROIarea()
-
-            
-    def drawRoi(self, event):
+          
+    def drawROI(self, event):
         if self.roiOn:
             self.deleteROIarea()
             
@@ -195,19 +173,12 @@ class CropApp:
             
             self.areaROI = self.imageArea.create_rectangle(self.startX-14, self.startY-14, self.startX+14, self.startY+14, outline="red", width=2)
         
-
-    def selectRoi(self, event):
-        self.startX = event.x
-        self.startY = event.y
+    def showROI(self):
+        if self.areaROI:
+            self.imageArea.itemconfig(self.areaROI, outline="green")
+            cutROI = self.imageForMaskMultiplication.crop((self.startX-14, self.startY-14, self.startX+14, self.startY+14))
         
-        self.cutRoi()
-        
-    def cutRoi(self):
-        roi = self.imageForMaskMultiplication.crop
-        ((self.startX, self.startY, 
-        self.startX+28, self.startY+28))
-        
-        roi.show()
+        cutROI.show()
 
     def nextMatPatient(self):
         if self.matFileIsOpen:
