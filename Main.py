@@ -162,12 +162,11 @@ class CropApp:
             self.roiOn = False
             self.chooseRoi.config(text="SELECT ROI")
             self.imageArea.unbind("<Button-1>")
-            
+            self.deleteROIarea()
         else:
             self.roiOn = True
             self.chooseRoi.config(text="END SELECT ROI")
             self.imageArea.bind("<Button-1>", self.drawROI)
-            self.deleteROIarea()
           
     def drawROI(self, event):
         if self.roiOn:
@@ -186,26 +185,60 @@ class CropApp:
         cutROI.show()
 
     def nextMatPatient(self):
-        if self.matFileIsOpen:
-            self.readMatFiles(self.numPatient+1, self.imgPatient)
-            self.numPatient += 1
+        if (self.matFileIsOpen):
+            if self.numPatient >= 54:
+                self.numPatient = 0
+            else:
+                self.numPatient += 1
+            
             self.imgPatient = 0
             
-    def nextMatPatientImage(self):
-        if self.matFileIsOpen:
-            self.readMatFiles(self.numPatient, self.imgPatient+1)
-            self.imgPatient += 1
+            print("Patient: ", self.numPatient)
+            print("Image: ", self.imgPatient)
+            
+            if (self.imgPatient >= 0 and self.imgPatient <= 54):
+                self.readMatFiles(self.numPatient, self.imgPatient)
     
     def previousMatPatient(self):
-        if self.matFileIsOpen:
-            self.readMatFiles(self.numPatient+1, self.imgPatient)
-            self.numPatient -= 1
-            self.imgPatient = 0
+        if (self.matFileIsOpen):
+            if self.numPatient <= 0:
+                self.numPatient = 54
+            else:
+                self.numPatient -= 1
             
+            self.imgPatient = 0
+                        
+            print("Patient: ", self.numPatient)
+            print("Image: ", self.imgPatient)            
+            
+            if (self.imgPatient >= 0 and self.imgPatient <= 54):
+                self.readMatFiles(self.numPatient, self.imgPatient)
+            
+    def nextMatPatientImage(self):
+        if (self.matFileIsOpen):
+            if (self.imgPatient >= 9):
+                self.imgPatient = 0
+            else:
+                self.imgPatient += 1
+            
+            print("Patient: ", self.numPatient)
+            print("Image: ", self.imgPatient)
+            
+            if (self.imgPatient >= 0 and self.imgPatient <= 9):
+                self.readMatFiles(self.numPatient, self.imgPatient)
+              
     def previousMatPatientImage(self):
-        if self.matFileIsOpen:
-            self.readMatFiles(self.numPatient, self.imgPatient+1)
-            self.imgPatient -= 1
+        if (self.matFileIsOpen):
+            if (self.imgPatient <= 0):
+                self.imgPatient = 9
+            else:
+                self.imgPatient -= 1
+            
+            print("Patient: ", self.numPatient)
+            print("Image: ", self.imgPatient)
+            
+            if (self.imgPatient >= 0 and self.imgPatient <= 9):
+                self.readMatFiles(self.numPatient, self.imgPatient)
    
     def resetZoom(self):
        self.zoomLevel = 1
