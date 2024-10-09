@@ -6,104 +6,114 @@ import scipy.io
 
 class CropApp:
     def __init__(self, root, uiWidth=434, uiHeight=636):
-        self.mat_file_is_open = False
-        self.num_pacient = 0
-        self.img_pacient = 0
-        self.mat_file = None
+        # Variables to keep track of the current patient and image being displayed and the .mat file being used
+        self.numPatient = 0
+        self.imgPatient = 0
+        self.matFile = None
+        self.areaROI = None
         
+        # Flags and Boolean variables to be used as flip-flops
+        self.roiOn = False
+        self.matFileIsOpen = False
+        
+        # UI Configs
         self.uiWidth = uiWidth
         self.uiHeight = uiHeight
         self.mask = np.ones((uiWidth, uiHeight))
         self.image = None
-        self.image_for_mask_multiplication = None
-        self.lasx, self.lasy = 0, 0
+        self.imageForMaskMultiplication = None
+        self.lasX, self.lasY = 0, 0
         self.img = None
 
         self.app = root
         self.app.title('CROP')
         self.app.geometry('700x700')
 
-        self.image_area = Canvas(self.app, width=uiWidth, height=uiHeight, bg='#C8C8C8')
+        # Canvas to display the image
+        self.imageArea = Canvas(self.app, width=uiWidth, height=uiHeight, bg='#C8C8C8')
 
-        self.open_image = Button(self.app, width=20, text='OPEN IMAGE', font='none 12', command=self.openAndPut)
-        
-        self.open_mat = Button(self.app, width=20, text='OPEN MAT DATASET', font='none 12', command=self.read_mat_files)
-        
-        self.next_pacient = Button(self.app, width=20, text='NEXT PACIENT', font='none 12', command=self.next_mat_pacient)
-        
-        self.previous_pacient = Button(self.app, width=20, text='PREVIOUS PACIENT', font='none 12', command=self.previous_mat_pacient)
+        # B U T T O N S
 
-        self.next_pacient_image = Button(self.app, width=20, text='NEXT PACIENT IMAGE', font='none 12', command=self.next_mat_pacient_image)
+        # Button to open Image/Mat file
+        self.openImage = Button(self.app, width=20, text='OPEN IMAGE', font='none 12', command=self.openAndPut)
+        self.openMat = Button(self.app, width=20, text='OPEN MAT DATASET', font='none 12', command=self.readMatFiles)
         
-        self.previous_pacient_image = Button(self.app, width=20, text='PREVIOUS PACIENT IMAGE', font='none 12', command=self.previous_mat_pacient_image)
+        self.nextPatient = Button(self.app, width=20, text='NEXT PATIENT', font='none 12', command=self.nextMatPatient)
+        self.previousPatient = Button(self.app, width=20, text='PREVIOUS PATIENT', font='none 12', command=self.previousMatPatient)
 
-        self.show_area = Button(self.app, width=20, text='SHOW AREA', font='none 12', command=self.show_mask)
+        self.nextPatientImage = Button(self.app, width=20, text='NEXT PATIENT IMAGE', font='none 12', command=self.nextMatPatientImage)
+        self.previousPatientImage = Button(self.app, width=20, text='PREVIOUS PATIENT IMAGE', font='none 12', command=self.previousMatPatientImage)
 
-        self.save_image = Button(self.app, width=20, text='SAVE IMAGE', font='none 12', command=self.save_image)
+        self.showArea = Button(self.app, width=20, text='SHOW AREA', font='none 12', command=self.showMask)
+        
+        self.chooseRoi = Button(self.app, width=20, text='SELECT ROI', font='none 12', command=self.toggleRoi)
 
-        self.image_area.grid(row=0, column=0)
-        self.show_area.grid(row=1, column=0)
+        #self.saveSelectedROI = Button(self.app, width=20, text='SAVE ROI', font='none 12', command=self.saveROI)
+
+
+        # Grid Layout
+        self.imageArea.grid(row=0, column=0)
+        self.showArea.grid(row=1, column=0)
+        self.chooseRoi.grid(row=2, column=0)
         
-        self.previous_pacient_image.grid(row=0, column=1)
-        self.next_pacient_image.grid(row=0, column=2)
+        self.previousPatientImage.grid(row=0, column=1)
+        self.nextPatientImage.grid(row=0, column=2)
         
-        self.previous_pacient.grid(row=1, column=1)
-        self.next_pacient.grid(row=1, column=2)
+        self.previousPatient.grid(row=1, column=1)
+        self.nextPatient.grid(row=1, column=2)
         
-        self.open_mat.grid(row=3, column=1)
-        self.open_image.grid(row=4, column=1)
-        self.save_image.grid()
+        self.openMat.grid(row=3, column=1)
+        self.openImage.grid(row=4, column=1)
+        #self.saveSelectedROI.grid()
         
     def openAndPut(self):
-        self.mat_file_is_open = False
-        self.mat_file = None
+        self.matFileIsOpen = False
+        self.matFile = None
         path = filedialog.askopenfilename()
         if path:
             self.image = Image.open(path)
-            self.image_for_mask_multiplication = Image.open(path)
+            self.imageForMaskMultiplication = Image.open(path)
             self.image = self.image.resize((self.uiWidth , self.uiHeight), Image.LANCZOS)
-            self.image_for_mask_multiplication = self.image_for_mask_multiplication.resize((434, 636), Image.LANCZOS)
+            self.imageForMaskMultiplication = self.imageForMaskMultiplication.resize((434, 636), Image.LANCZOS)
             self.image = ImageTk.PhotoImage(self.image)
-            self.image_area.create_image(0, 0, image=self.image, anchor='nw')
+            self.imageArea.create_image(0, 0, image=self.image, anchor='nw')
     
-    
+        if 0 <= self.lasX < 500 and 0 <= self.lasY < 400:
+            self.mask[self.lasY][self.lasX] = 0 
+            self.mask[self.lasY+1][self.lasX+1] = 0 
+            self.mask[self.lasY-1][self.lasX-1] = 0 
+            self.mask[self.lasY+1][self.lasX-1] = 0 
+            self.mask[self.lasY-1][self.lasX+1] = 0 
 
-        if 0 <= self.lasx < 500 and 0 <= self.lasy < 400:
-            self.mask[self.lasy][self.lasx] = 0 
-            self.mask[self.lasy+1][self.lasx+1] = 0 
-            self.mask[self.lasy-1][self.lasx-1] = 0 
-            self.mask[self.lasy+1][self.lasx-1] = 0 
-            self.mask[self.lasy-1][self.lasx+1] = 0 
-
-    def retrun_shape(self, image_in):
-        image = image_in
-        gray = image_in
+    def returnShape(self, imageIn):
+        image = imageIn
+        gray = imageIn
         edged = cv2.Canny(gray, 30, 200) 
 
         contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE) 
 
         cv2.drawContours(image, contours, -1, (0, 0, 0), 3)  
-        th, im_th = cv2.threshold(image, 200, 255, cv2.THRESH_BINARY_INV)
-        im_floodfill = im_th.copy()
-        h, w = im_th.shape[:2]
+        th, imTh = cv2.threshold(image, 200, 255, cv2.THRESH_BINARY_INV)
+        imFloodfill = imTh.copy()
+        h, w = imTh.shape[:2]
         mask = np.zeros((h+2, w+2), np.uint8)
-        cv2.floodFill(im_floodfill, mask, (0,0), (255,255,255))
-        im_floodfill = np.abs(im_floodfill-np.ones((self.uiWidth ,self.uiHeight))*255)
-        return im_floodfill
+        cv2.floodFill(imFloodfill, mask, (0,0), (255,255,255))
+        imFloodfill = np.abs(imFloodfill-np.ones((self.uiWidth ,self.uiHeight))*255)
+        return imFloodfill
 
-    def show_mask(self):
-        mask_3_channels = np.ones((self.uiHeight, self.uiHeight, 3)) 
+    def showMask(self):
+        mask3Channels = np.ones((self.uiHeight, self.uiHeight, 3)) 
 
-        image_mattt = (self.mask * 255).astype(np.uint8)
-        the_real_mask = self.retrun_shape(image_mattt)
-        mask_3_channels[:,:,0] = the_real_mask/255
-        mask_3_channels[:,:,1] = the_real_mask/255
-        mask_3_channels[:,:,2] = the_real_mask/255
+        imageMattt = (self.mask * 255).astype(np.uint8)
+        theRealMask = self.returnShape(imageMattt)
+        mask3Channels[:,:,0] = theRealMask/255
+        mask3Channels[:,:,1] = theRealMask/255
+        mask3Channels[:,:,2] = theRealMask/255
 
-        real_area = np.array(self.image_for_mask_multiplication) * mask_3_channels
-        real_area = Image.fromarray(np.uint8(real_area)).convert('RGB')
+        realArea = np.array(self.imageForMaskMultiplication) * mask3Channels
+        realArea = Image.fromarray(np.uint8(realArea)).convert('RGB')
         
-        self.img = real_area.convert("RGBA")
+        self.img = realArea.convert("RGBA")
         datas = self.img.getdata()
 
         newData = []
@@ -116,75 +126,110 @@ class CropApp:
         self.img.putdata(newData)
         self.img.show()
 
-    def save_image(self):
-        path_save = filedialog.asksaveasfilename()
-        if path_save:
-            self.img.save(str(path_save), "PNG")
-
-    def read_mat_files(self, num_pacient=0, img_pacient=0):
+    def readMatFiles(self, numPatient=0, imgPatient=0):
         
-        if not self.mat_file_is_open:
+        if not self.matFileIsOpen:
             path = filedialog.askopenfilename()
-            self.mat_file = path
+            self.matFile = path
         else:
-            path = self.mat_file
+            path = self.matFile
 
         if path:
             
-            #flag to indicate that a .mat is open
-            self.mat_file_is_open = True
+            # Flag to indicate that a .mat is open
+            self.matFileIsOpen = True
             
-            #load matrix into data variable
+            # Load matrix into data variable
             data = scipy.io.loadmat(path)
 
-            #get the data array
-            data_array = data['data'] 
+            # Get the data array
+            dataArray = data['data'] 
 
-            #get the first input
-            input = data_array[0, num_pacient]
+            # Get the first input
+            input = dataArray[0, numPatient]
             
-            #get the images from the input
-            mat_imagens = input['images']
-            mat_image = mat_imagens[img_pacient]
+            # Get the images from the input
+            matImagens = input['images']
+            matImage = matImagens[imgPatient]
 
             # Convert the image to a format usable by PIL
-            mat_image = np.array(mat_image)
+            matImage = np.array(matImage)
 
             # Convert the NumPy array to an Image
-            pil_image = Image.fromarray(mat_image)
+            pilImage = Image.fromarray(matImage)
 
             # Resize if necessary
-            pil_image = pil_image.resize((self.uiWidth, self.uiHeight), Image.LANCZOS)
+            pilImage = pilImage.resize((self.uiWidth, self.uiHeight), Image.LANCZOS)
 
             # Update the image references
-            self.image = ImageTk.PhotoImage(pil_image)
-            self.image_for_mask_multiplication = pil_image
+            self.image = ImageTk.PhotoImage(pilImage)
+            self.imageForMaskMultiplication = pilImage
 
             # Display the image in the Canvas widget
-            self.image_area.create_image(0, 0, image=self.image, anchor='nw')
+            self.imageArea.create_image(0, 0, image=self.image, anchor='nw')
 
+    def deleteROIarea(self):
+        if self.areaROI:
+            self.imageArea.delete(self.areaROI)
+            self.areaROI = None
 
-    def next_mat_pacient(self):
-        if self.mat_file_is_open:
-            self.read_mat_files(self.num_pacient+1, self.img_pacient)
-            self.num_pacient += 1
-            self.img_pacient = 0
+    def toggleRoi(self):
+        if self.roiOn:
+            self.roiOn = False
+            self.chooseRoi.config(text="SELECT ROI")
+            self.imageArea.unbind("<Button-1>")
             
-    def next_mat_pacient_image(self):
-        if self.mat_file_is_open:
-            self.read_mat_files(self.num_pacient, self.img_pacient+1)
-            self.img_pacient += 1
+        else:
+            self.roiOn = True
+            self.chooseRoi.config(text="END SELECT ROI")
+            self.imageArea.bind("<Button-1>", self.drawRoi)
+            self.deleteROIarea()
+
+            
+    def drawRoi(self, event):
+        if self.roiOn:
+            self.deleteROIarea()
+            
+            self.startX = event.x
+            self.startY = event.y
+            
+            self.areaROI = self.imageArea.create_rectangle(self.startX-14, self.startY-14, self.startX+14, self.startY+14, outline="red", width=2)
+        
+
+    def selectRoi(self, event):
+        self.startX = event.x
+        self.startY = event.y
+        
+        self.cutRoi()
+        
+    def cutRoi(self):
+        roi = self.imageForMaskMultiplication.crop
+        ((self.startX, self.startY, 
+        self.startX+28, self.startY+28))
+        
+        roi.show()
+
+    def nextMatPatient(self):
+        if self.matFileIsOpen:
+            self.readMatFiles(self.numPatient+1, self.imgPatient)
+            self.numPatient += 1
+            self.imgPatient = 0
+            
+    def nextMatPatientImage(self):
+        if self.matFileIsOpen:
+            self.readMatFiles(self.numPatient, self.imgPatient+1)
+            self.imgPatient += 1
     
-    def previous_mat_pacient(self):
-        if self.mat_file_is_open:
-            self.read_mat_files(self.num_pacient+1, self.img_pacient)
-            self.num_pacient -= 1
-            self.img_pacient = 0
+    def previousMatPatient(self):
+        if self.matFileIsOpen:
+            self.readMatFiles(self.numPatient+1, self.imgPatient)
+            self.numPatient -= 1
+            self.imgPatient = 0
             
-    def previous_mat_pacient_image(self):
-        if self.mat_file_is_open:
-            self.read_mat_files(self.num_pacient, self.img_pacient+1)
-            self.img_pacient -= 1
+    def previousMatPatientImage(self):
+        if self.matFileIsOpen:
+            self.readMatFiles(self.numPatient, self.imgPatient+1)
+            self.imgPatient -= 1
     
 
 if __name__ == "__main__":
