@@ -6,11 +6,12 @@ import scipy.io
 
 class CropApp:
     def __init__(self, root, uiWidth=434, uiHeight=636):
-        # Variables to keep track of the current patient and image being displayed and the .mat file being used
+        # Variables to keep track of the different parameters that change during the use of the app
         self.numPatient = 0
         self.imgPatient = 0
         self.matFile = None
         self.areaROI = None
+        self.zoomLevel = 1
         
         # Flags and Boolean variables to be used as flip-flops
         self.roiOn = False
@@ -38,25 +39,28 @@ class CropApp:
         self.openImage = Button(self.app, width=20, text='OPEN IMAGE', font='none 12', command=self.openAndPut)
         self.openMat = Button(self.app, width=20, text='OPEN MAT DATASET', font='none 12', command=self.readMatFiles)
         
+        # Buttons to navigate through the images
         self.nextPatient = Button(self.app, width=20, text='NEXT PATIENT', font='none 12', command=self.nextMatPatient)
         self.previousPatient = Button(self.app, width=20, text='PREVIOUS PATIENT', font='none 12', command=self.previousMatPatient)
 
+        # Buttons to navigate through the patients
         self.nextPatientImage = Button(self.app, width=20, text='NEXT PATIENT IMAGE', font='none 12', command=self.nextMatPatientImage)
         self.previousPatientImage = Button(self.app, width=20, text='PREVIOUS PATIENT IMAGE', font='none 12', command=self.previousMatPatientImage)
         
+        #ROI Related Buttons
         self.chooseRoi = Button(self.app, width=20, text='SELECT ROI', font='none 12', command=self.toggleROI)
-
         self.showArea = Button(self.app, width=20, text='SHOW ROI', font='none 12', command=self.showROI)
-        
         self.saveSelectedROI = Button(self.app, width=20, text='SAVE ROI', font='none 12', command=self.saveROI)
 
+        #Zoom Reset Button
+        self.resetZoomButton = Button(self.app, width=20, text='RESET ZOOM', font='none 12', command=self.resetZoom)
 
         # Grid Layout
         self.imageArea.grid(row=0, column=0)
         self.showArea.grid(row=1, column=0)
         self.chooseRoi.grid(row=2, column=0)
         self.saveSelectedROI.grid(row=3, column=0)
-
+        self.resetZoomButton.grid(row=4, column=0)
         
         self.previousPatientImage.grid(row=0, column=1)
         self.nextPatientImage.grid(row=0, column=2)
@@ -144,6 +148,7 @@ class CropApp:
             # Display the image in the Canvas widget
             self.imageArea.create_image(0, 0, image=self.image, anchor='nw')
 
+    #TODO: Implement this method
     def saveROI(self):
         pass
 
@@ -201,6 +206,9 @@ class CropApp:
         if self.matFileIsOpen:
             self.readMatFiles(self.numPatient, self.imgPatient+1)
             self.imgPatient -= 1
+   
+    def resetZoom(self):
+       self.zoomLevel = 1
     
 
 if __name__ == "__main__":
