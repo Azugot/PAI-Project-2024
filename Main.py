@@ -9,9 +9,10 @@ class CropApp:
         # Variables to keep track of the different parameters that change during the use of the app
         self.numPatient = 0
         self.imgPatient = 0
+        self.zoomLevel = 1
         self.matFile = None
         self.areaROI = None
-        self.zoomLevel = 1
+        self.pathROI = None
         
         # Flags and Boolean variables to be used as flip-flops
         self.roiOn = False
@@ -36,7 +37,7 @@ class CropApp:
         # B U T T O N S
 
         # Button to open Image/Mat file
-        self.openImage = Button(self.app, width=20, text='OPEN IMAGE', font='none 12', command=self.openAndPut)
+        self.openImage = Button(self.app, width=20, text='OPEN IMAGE', font='none 12', command=self.readImage)
         self.openMat = Button(self.app, width=20, text='OPEN MAT DATASET', font='none 12', command=self.readMatFiles)
         
         # Buttons to navigate through the images
@@ -71,7 +72,7 @@ class CropApp:
         self.openMat.grid(row=3, column=1)
         self.openImage.grid(row=4, column=1)
         
-    def openAndPut(self):
+    def readImage(self):
         self.matFileIsOpen = False
         self.matFile = None
         path = filedialog.askopenfilename()
@@ -106,21 +107,42 @@ class CropApp:
         imFloodfill = np.abs(imFloodfill-np.ones((self.uiWidth ,self.uiHeight))*255)
         return imFloodfill
 
-    def readMatFiles(self, numPatient=0, imgPatient=0):
+    def readMatFiles(self):
         
-        if not self.matFileIsOpen:
-            path = filedialog.askopenfilename()
-            self.matFile = path
-        else:
-            path = self.matFile
+        self.path = filedialog.askopenfilename()
+        self.matFile = self.path
+        self.imgPatient = 0
+        self.numPatient = 0
 
-        if path:
+        if (self.path):
             
             # Flag to indicate that a .mat is open
             self.matFileIsOpen = True
             
             # Load matrix into data variable
-            data = scipy.io.loadmat(path)
+            data = scipy.io.loadmat(self.path)
+
+            dataArray = data['data'] 
+            input = dataArray[0, self.numPatient]
+            matImagens = input['images']
+            matImage = matImagens[self.imgPatient]
+
+            matImage = np.array(matImage)
+            pilImage = Image.fromarray(matImage)
+
+            pilImage = pilImage.resize((self.uiWidth, self.uiHeight), Image.LANCZOS)
+
+            # Update the image references
+            self.image = ImageTk.PhotoImage(pilImage)
+            self.imageForMaskMultiplication = pilImage
+
+            # Display the image in the Canvas widget
+            self.imageArea.create_image(0, 0, image=self.image, anchor='nw')
+
+    def navigateThroughMatFile(self, numPatient,imgPatient):
+        if(self.matFileIsOpen and self.path):
+            # Load matrix into data variable
+            data = scipy.io.loadmat(self.path)
 
             # Get the data array
             dataArray = data['data'] 
@@ -153,38 +175,67 @@ class CropApp:
         pass
 
     def deleteROIarea(self):
-        if self.areaROI:
+        if (self.areaROI):
             self.imageArea.delete(self.areaROI)
             self.areaROI = None
 
     def toggleROI(self):
-        if self.roiOn:
+        if (self.roiOn):
             self.roiOn = False
             self.chooseRoi.config(text="SELECT ROI")
             self.imageArea.unbind("<Button-1>")
+            self.imageArea.unbind("<B1-Motion>")
             self.deleteROIarea()
         else:
             self.roiOn = True
             self.chooseRoi.config(text="END SELECT ROI")
-            self.imageArea.bind("<Button-1>", self.drawROI)
-    
-          
-    def drawROI(self, event):
-        if self.roiOn:
+            self.imageArea.bind("<Button-1>", self.startDrawROI)
+            self.imageArea.bind("<B1-Motion>", self.finishDrawROI)
+           
+    def startDrawROI(self, event):
+        self.startX = event.x
+        self.startY = event.y
+        self.deleteROIarea()
+        self.areaROI = self.imageArea.create_rectangle(self.startX, self.startY, self.startX, self.startY, outline="red", width=2)
+           
+    def finishDrawROI(self, event):
+        if (self.roiOn and self.areaROI):
+            self.imageArea.coords(self.areaROI, self.startX, self.startY, event.x, event.y)
+
+    def drawROIFixed(self, event):
+        if (self.roiOn):
             self.deleteROIarea()
-            
+
             self.startX = event.x
             self.startY = event.y
-            
+
             self.areaROI = self.imageArea.create_rectangle(self.startX-14, self.startY-14, self.startX+14, self.startY+14, outline="red", width=2)
     
-    #TODO: Fix this method for generic Images    
-    def showROI(self):
+    #TODO: Fix this method for generic Images   
+    def showROI(self): 
         if self.areaROI:
-            self.imageArea.itemconfig(self.areaROI, outline="green")
-            cutROI = self.imageForMaskMultiplication.crop((self.startX-14, self.startY-14, self.startX+14, self.startY+14))
-        
-        cutROI.show()
+            
+            self.imageArea.itemconfig(self.areaROI, outline = "green")
+            
+            x1, y1, x2, y2 = self.imageArea.coords(self.areaROI)
+            x1, y1, x2, y2 = map(int, [max(0, x1), max(0, y1), min(self.uiWidth, x2), min(self.uiHeight, y2)])
+           
+            #Need this to make it work for "Normal" images or the multiplication gets broken and the ROI gets too
+            
+            #Gets the fucking scale right
+            originalX, originalY = self.imageForMaskMultiplication.size
+            scaleX = originalX / self.uiWidth
+            scaleY = originalY / self.uiHeight
+
+            # Convert coordinates to make it right
+            correctedX1 = int(x1 * scaleX)
+            correctedY1 = int(y1 * scaleY)
+            correctedX2 = int(x2 * scaleX)
+            correctedY2 = int(y2 * scaleY)
+
+            cutROI = self.imageForMaskMultiplication.crop((correctedX1, correctedY1, correctedX2, correctedY2))
+
+            cutROI.show()
 
     def nextMatPatient(self):
         if (self.matFileIsOpen):
@@ -199,7 +250,7 @@ class CropApp:
             print("Image: ", self.imgPatient)
             
             if (self.imgPatient >= 0 and self.imgPatient <= 54):
-                self.readMatFiles(self.numPatient, self.imgPatient)
+                self.navigateThroughMatFile(self.numPatient, self.imgPatient)
     
     def previousMatPatient(self):
         if (self.matFileIsOpen):
@@ -214,7 +265,7 @@ class CropApp:
             print("Image: ", self.imgPatient)            
             
             if (self.imgPatient >= 0 and self.imgPatient <= 54):
-                self.readMatFiles(self.numPatient, self.imgPatient)
+                self.navigateThroughMatFile(self.numPatient, self.imgPatient)
             
     def nextMatPatientImage(self):
         if (self.matFileIsOpen):
@@ -227,7 +278,7 @@ class CropApp:
             print("Image: ", self.imgPatient)
             
             if (self.imgPatient >= 0 and self.imgPatient <= 9):
-                self.readMatFiles(self.numPatient, self.imgPatient)
+                self.navigateThroughMatFile(self.numPatient, self.imgPatient)
               
     def previousMatPatientImage(self):
         if (self.matFileIsOpen):
@@ -240,7 +291,7 @@ class CropApp:
             print("Image: ", self.imgPatient)
             
             if (self.imgPatient >= 0 and self.imgPatient <= 9):
-                self.readMatFiles(self.numPatient, self.imgPatient)
+                self.navigateThroughMatFile(self.numPatient, self.imgPatient)
    
     def resetZoom(self):
        self.zoomLevel = 1
