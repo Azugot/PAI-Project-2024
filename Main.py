@@ -2,17 +2,20 @@ from tkinter import Label, filedialog, Canvas, Button, Tk
 from PIL import Image, ImageTk
 import numpy as np 
 import cv2
+import os
 import scipy.io
 
 class CropApp:
-    def __init__(self, root, uiWidth=434, uiHeight=636):
+    def __init__(self, root, savePath, uiWidth=434, uiHeight=636):
         # Variables to keep track of the different parameters that change during the use of the app
         self.numPatient = 0
         self.imgPatient = 0
         self.zoomLevel = 1
+        self.savePath = savePath
         self.matFile = None
         self.areaROI = None
         self.pathROI = None
+        
         
         # Flags and Boolean variables to be used as flip-flops
         self.roiOn = False
@@ -170,9 +173,18 @@ class CropApp:
             # Display the image in the Canvas widget
             self.imageArea.create_image(0, 0, image=self.image, anchor='nw')
 
-    #TODO: Implement this method
     def saveROI(self):
-        pass
+        cutROI = self.acquireROI()
+        
+        # Ensure the save path directory exists
+        os.makedirs(self.savePath, exist_ok=True)
+
+        # Save the image with a different alias
+        if (self.numPatient < 10):
+            file_name = os.path.join(self.savePath, f"ROI_0{self.numPatient}_{self.imgPatient}.png")
+        else:
+            file_name = os.path.join(self.savePath, f"ROI_{self.numPatient}_{self.imgPatient}.png")
+        cutROI.save(file_name)
 
     def deleteROIarea(self):
         if (self.areaROI):
@@ -211,29 +223,30 @@ class CropApp:
 
             self.areaROI = self.imageArea.create_rectangle(self.startX-14, self.startY-14, self.startX+14, self.startY+14, outline="red", width=2)
     
-    #TODO: Fix this method for generic Images   
+    def acquireROI(self):    
+        self.imageArea.itemconfig(self.areaROI, outline = "green")
+        
+        x1, y1, x2, y2 = self.imageArea.coords(self.areaROI)
+        x1, y1, x2, y2 = map(int, [max(0, x1), max(0, y1), min(self.uiWidth, x2), min(self.uiHeight, y2)])
+        
+        #Need this to make it work for "Normal" images or the multiplication gets broken and the ROI gets too
+        #Gets the fucking scale right
+        originalX, originalY = self.imageForMaskMultiplication.size
+        scaleX = originalX / self.uiWidth
+        scaleY = originalY / self.uiHeight
+        
+        # Convert coordinates to make it right
+        correctedX1 = int(x1 * scaleX)
+        correctedY1 = int(y1 * scaleY)
+        correctedX2 = int(x2 * scaleX)
+        correctedY2 = int(y2 * scaleY)
+        return (self.imageForMaskMultiplication.crop((correctedX1, correctedY1, correctedX2, correctedY2)))
+    
+    #TODO: Fix this method for generic Images 
     def showROI(self): 
         if self.areaROI:
             
-            self.imageArea.itemconfig(self.areaROI, outline = "green")
-            
-            x1, y1, x2, y2 = self.imageArea.coords(self.areaROI)
-            x1, y1, x2, y2 = map(int, [max(0, x1), max(0, y1), min(self.uiWidth, x2), min(self.uiHeight, y2)])
-           
-            #Need this to make it work for "Normal" images or the multiplication gets broken and the ROI gets too
-            
-            #Gets the fucking scale right
-            originalX, originalY = self.imageForMaskMultiplication.size
-            scaleX = originalX / self.uiWidth
-            scaleY = originalY / self.uiHeight
-
-            # Convert coordinates to make it right
-            correctedX1 = int(x1 * scaleX)
-            correctedY1 = int(y1 * scaleY)
-            correctedX2 = int(x2 * scaleX)
-            correctedY2 = int(y2 * scaleY)
-
-            cutROI = self.imageForMaskMultiplication.crop((correctedX1, correctedY1, correctedX2, correctedY2))
+            cutROI = self.acquireROI()
 
             cutROI.show()
 
@@ -299,5 +312,5 @@ class CropApp:
 
 if __name__ == "__main__":
     root = Tk()
-    app = CropApp(root, 636, 434)
+    app = CropApp(root, "./ROISavedFiles", 636, 434)
     root.mainloop()
