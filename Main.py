@@ -94,22 +94,6 @@ class CropApp:
             self.mask[self.lasY+1][self.lasX-1] = 0 
             self.mask[self.lasY-1][self.lasX+1] = 0 
 
-    def returnShape(self, imageIn):
-        image = imageIn
-        gray = imageIn
-        edged = cv2.Canny(gray, 30, 200) 
-
-        contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE) 
-
-        cv2.drawContours(image, contours, -1, (0, 0, 0), 3)  
-        th, imTh = cv2.threshold(image, 200, 255, cv2.THRESH_BINARY_INV)
-        imFloodfill = imTh.copy()
-        h, w = imTh.shape[:2]
-        mask = np.zeros((h+2, w+2), np.uint8)
-        cv2.floodFill(imFloodfill, mask, (0,0), (255,255,255))
-        imFloodfill = np.abs(imFloodfill-np.ones((self.uiWidth ,self.uiHeight))*255)
-        return imFloodfill
-
     def readMatFiles(self):
         self.path = filedialog.askopenfilename()
         self.matFile = self.path
@@ -223,6 +207,7 @@ class CropApp:
 
             self.areaROI = self.imageArea.create_rectangle(self.startX-14, self.startY-14, self.startX+14, self.startY+14, outline="red", width=2)
     
+    #TODO: Fix this method for generic Images 
     def acquireROI(self):    
         self.imageArea.itemconfig(self.areaROI, outline = "green")
         
@@ -242,7 +227,6 @@ class CropApp:
         correctedY2 = int(y2 * scaleY)
         return (self.imageForMaskMultiplication.crop((correctedX1, correctedY1, correctedX2, correctedY2)))
     
-    #TODO: Fix this method for generic Images 
     def showROI(self): 
         if self.areaROI:
             
