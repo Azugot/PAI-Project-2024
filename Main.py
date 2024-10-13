@@ -1,9 +1,12 @@
-from tkinter import Label, filedialog, Canvas, Button, Tk
+from tkinter import Label, filedialog, Canvas, Button, Tk, Toplevel, Frame, Scrollbar, Canvas
 from PIL import Image, ImageTk
 import numpy as np 
 import cv2
 import os
 import scipy.io
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from skimage.feature import graycomatrix, graycoprops as greycoprops
 
 class CropApp:
     def __init__(self, root, savePath, uiWidth=434, uiHeight=636):
@@ -15,7 +18,6 @@ class CropApp:
         self.matFile = None
         self.areaROI = None
         self.pathROI = None
-        
         
         # Flags and Boolean variables to be used as flip-flops
         self.roiOn = False
@@ -55,6 +57,8 @@ class CropApp:
         self.chooseRoi = Button(self.app, width=20, text='SELECT ROI', font='none 12', command=self.toggleROI)
         self.showArea = Button(self.app, width=20, text='SHOW ROI', font='none 12', command=self.showROI)
         self.saveSelectedROI = Button(self.app, width=20, text='SAVE ROI', font='none 12', command=self.saveROI)
+        self.viewHistogramsButton = Button(self.app, width=20, text='VIEW HISTOGRAMS', font='none 12', command=self.viewHistograms)
+        self.viewGLCMButton = Button(self.app, width=20, text='VIEW GLCM & TEXTURE', font='none 12', command=self.viewGLCM)
         
         # Zoom Reset Button (initially hidden)
         self.resetZoomButton = Button(self.app, width=20, text='RESET ZOOM', font='none 12', command=self.resetZoom)
@@ -62,16 +66,22 @@ class CropApp:
         # Grid Layout
         self.imageArea.grid(row=0, column=0, columnspan=3)
 
+    def listSavedROIFiles(self):
+        # Function to list all saved ROI files
+        return [f for f in os.listdir(self.savePath) if os.path.isfile(os.path.join(self.savePath, f))]    
+
+    #M OSTRAR BOTOES DPS DE ENVIAR A IMAGEM
     def showAdditionalButtons(self):
-        # Display additional buttons once an image or MAT file is loaded
         self.showArea.grid(row=3, column=0, sticky="n")
         self.chooseRoi.grid(row=4, column=0, sticky="n")
         self.saveSelectedROI.grid(row=5, column=0, sticky="n")
-        self.resetZoomButton.grid(row=6, column=0, sticky="n")
-        self.previousPatientImage.grid(row=7, column=0, sticky="n", padx=5)
-        self.nextPatientImage.grid(row=7, column=1, sticky="n", padx=5)
-        self.previousPatient.grid(row=8, column=0, sticky="n", padx=5)
-        self.nextPatient.grid(row=8, column=1, sticky="n", padx=5)
+        self.viewHistogramsButton.grid(row=7, column=0, sticky="n")
+        self.viewGLCMButton.grid(row=8, column=0, sticky="n")
+        self.resetZoomButton.grid(row=9, column=0, sticky="n")
+        self.previousPatientImage.grid(row=10, column=0, sticky="n", padx=5)
+        self.nextPatientImage.grid(row=10, column=1, sticky="n", padx=5)
+        self.previousPatient.grid(row=11, column=0, sticky="n", padx=5)
+        self.nextPatient.grid(row=11, column=1, sticky="n", padx=5)
 
     def readImage(self):
         self.matFileIsOpen = False
@@ -168,7 +178,7 @@ class CropApp:
             file_name = os.path.join(self.savePath, f"ROI_0{self.numPatient}_{self.imgPatient}.png")
         else:
             file_name = os.path.join(self.savePath, f"ROI_{self.numPatient}_{self.imgPatient}.png")
-        cutROI.save(file_name)
+        cutROI.save(file_name, "PNG")
 
     def deleteROIarea(self):
         if (self.areaROI):
@@ -186,7 +196,7 @@ class CropApp:
             self.roiOn = True
             self.chooseRoi.config(text="END SELECT ROI")
             self.imageArea.bind("<Button-1>", self.startDrawROI)
-            self.imageArea.bind("<B1-Motion>", self.finishDrawROI)
+            self.imageArea.bind("<B1-Motion>", self.finishDrawROI)         
            
     def startDrawROI(self, event):
         self.startX = event.x
@@ -292,6 +302,180 @@ class CropApp:
    
     def resetZoom(self):
        self.zoomLevel = 1
+
+    # S A L V A
+    def viewSavedROIs(self):
+        # Create a new window to display saved ROIs
+        roiWindow = Toplevel(self.app)
+        roiWindow.title("Saved ROIs")
+        roiWindow.geometry("800x600")
+
+        # Add a scrollable canvas
+        canvas = Canvas(roiWindow)
+        scrollbar = Scrollbar(roiWindow, orient="vertical", command=canvas.yview)
+        scrollable_frame = Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Pega todos os arquivos salvos
+        roiFiles = self.listSavedROIFiles()
+
+        # Abre uma janela nova 
+        row = 0
+        for roiFile in roiFiles:
+            roiPath = os.path.join(self.savePath, roiFile)
+            roiImage = Image.open(roiPath)
+            roiImage = roiImage.resize((200, 200), Image.LANCZOS)
+            roiPhoto = ImageTk.PhotoImage(roiImage)
+
+            label = Label(scrollable_frame, image=roiPhoto)
+            label.image = roiPhoto
+            label.grid(row=row // 4, column=row % 4, padx=5, pady=5)
+            row += 1
+
+    # H I S T O G R A M A
+    def viewHistograms(self):
+        # cria uma janela nova
+        histWindow = Toplevel(self.app)
+        histWindow.title("Histograms of Saved ROIs")
+        histWindow.geometry("1200x800")
+
+        # coloca um scroll
+        canvas = Canvas(histWindow)
+        scrollbar = Scrollbar(histWindow, orient="vertical", command=canvas.yview)
+        scrollable_frame = Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Pega todos os arquivos salvos
+        roiFiles = self.listSavedROIFiles()
+
+        # abre a nova janela
+        for roiFile in roiFiles:
+            roiPath = os.path.join(self.savePath, roiFile)
+            roiImage = cv2.imread(roiPath)
+            roiImageRGB = cv2.cvtColor(roiImage, cv2.COLOR_BGR2RGB)
+
+            # Para a imagem e o histograma ficar um do lado do outro
+            frame = Frame(scrollable_frame)
+            frame.pack(pady=10)
+
+            #Exibe uma roi
+            roiPIL = Image.fromarray(roiImageRGB)
+            roiPIL = roiPIL.resize((200, 200), Image.LANCZOS)
+            roiPhoto = ImageTk.PhotoImage(roiPIL)
+            imgLabel = Label(frame, image=roiPhoto)
+            imgLabel.image = roiPhoto 
+            imgLabel.pack(side='left', padx=10)
+
+            # Calcula o histograma
+            colors = ('r', 'g', 'b')
+            fig, ax = plt.subplots(figsize=(5, 3))
+            ax.set_title(f"Histogram for {roiFile}")
+            for i, color in enumerate(colors):
+                hist = cv2.calcHist([roiImageRGB], [i], None, [256], [0, 256])
+                ax.plot(hist, color=color)
+                ax.set_xlim([0, 256])
+
+            canvas_hist = FigureCanvasTkAgg(fig, master=frame)
+            canvas_hist.draw()
+            canvas_hist.get_tk_widget().pack(side='right', padx=10)
+
+    # M A T R I Z
+    def viewGLCM(self):
+        # Cria uma janela nova
+        glcmWindow = Toplevel(self.app)
+        glcmWindow.title("GLCM & Texture Features of Saved ROIs")
+        glcmWindow.geometry("1200x800")
+
+        #Barra de rolagem
+        canvas = Canvas(glcmWindow)
+        scrollbar = Scrollbar(glcmWindow, orient="vertical", command=canvas.yview)
+        scrollable_frame = Frame(canvas)
+
+        #barra de rolagem fica dinamica conforme o conteudo da pagina
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Pega todos os arquivos salvos
+        roiFiles = self.listSavedROIFiles()
+
+        # Calcula a matriz GLCM
+        for roiFile in roiFiles:
+            roiPath = os.path.join(self.savePath, roiFile)
+            roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
+
+            # Cria GLCM matrix
+            glcm = graycomatrix(roiImage, distances=[1], angles=[0], levels=256, symmetric=True, normed=True)
+
+            # Calcula a textura
+            # Cacula a intensidade de contraste entre um pixel e seus vizinhos
+            contrast = greycoprops(glcm, 'contrast')[0, 0]
+            # Mede a dissimilaridade entre pixels
+            dissimilarity = greycoprops(glcm, 'dissimilarity')[0, 0]
+            # Mede a homogeneidade de valores altos indicam regiões uniformes
+            homogeneity = greycoprops(glcm, 'homogeneity')[0, 0]
+            # Mede a uniformidade da textura
+            energy = greycoprops(glcm, 'energy')[0, 0]
+            # Mede a correlação linear entre pixels
+            correlation = greycoprops(glcm, 'correlation')[0, 0]
+
+            #Exibe as imagens e o resultado um do lado do outro
+            frame = Frame(scrollable_frame)
+            frame.pack(pady=10)
+
+            # Mostra a ROI
+            roiPIL = Image.fromarray(roiImage)
+            roiPIL = roiPIL.resize((200, 200), Image.LANCZOS)
+            roiPhoto = ImageTk.PhotoImage(roiPIL)
+            imgLabel = Label(frame, image=roiPhoto)
+            imgLabel.image = roiPhoto 
+            imgLabel.pack(side='left', padx=10)
+
+            # Mostra os textos
+            featuresText = (
+                f"Contrast: {contrast:.4f}\n"
+                f"Dissimilarity: {dissimilarity:.4f}\n"
+                f"Homogeneity: {homogeneity:.4f}\n"
+                f"Energy: {energy:.4f}\n"
+                f"Correlation: {correlation:.4f}"
+            )
+
+            # Alinhamentos
+            featuresLabel = Label(frame, text=featuresText, font='none 12', justify='left')
+            featuresLabel.pack(side='right', padx=10)   
     
 
 if __name__ == "__main__":
