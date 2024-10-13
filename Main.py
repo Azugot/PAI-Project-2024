@@ -40,24 +40,24 @@ class CropApp:
         # B U T T O N S
 
         # Button to open Image/Mat file
-        self.openImage = Button(self.app, width=15, text='OPEN IMAGE', font='none 12', command=self.readImage)
-        self.openMat = Button(self.app, width=15, text='OPEN MAT DATASET', font='none 12', command=self.readMatFiles)
+        self.openImage = Button(self.app, width=20, text='OPEN IMAGE', font='none 12', command=self.readImage)
+        self.openMat = Button(self.app, width=20, text='OPEN MAT DATASET', font='none 12', command=self.readMatFiles)
         self.openImage.grid(row=1, column=0, sticky="n")
         self.openMat.grid(row=2, column=0, sticky="n")
 
         # Buttons to navigate through the images (initially hidden)
-        self.nextPatient = Button(self.app, width=15, text='NEXT PATIENT', font='none 12', command=self.nextMatPatient)
-        self.previousPatient = Button(self.app, width=15, text='PREVIOUS PATIENT', font='none 12', command=self.previousMatPatient)
-        self.nextPatientImage = Button(self.app, width=15, text='NEXT PATIENT IMAGE', font='none 12', command=self.nextMatPatientImage)
-        self.previousPatientImage = Button(self.app, width=15, text='PREVIOUS PATIENT IMAGE', font='none 12', command=self.previousMatPatientImage)
+        self.nextPatient = Button(self.app, width=20, text='NEXT PATIENT', font='none 12', command=self.nextMatPatient)
+        self.previousPatient = Button(self.app, width=20, text='PREVIOUS PATIENT', font='none 12', command=self.previousMatPatient)
+        self.nextPatientImage = Button(self.app, width=20, text='NEXT PATIENT IMAGE', font='none 12', command=self.nextMatPatientImage)
+        self.previousPatientImage = Button(self.app, width=20, text='PREVIOUS PATIENT IMAGE', font='none 12', command=self.previousMatPatientImage)
         
         # ROI Related Buttons (initially hidden)
-        self.chooseRoi = Button(self.app, width=15, text='SELECT ROI', font='none 12', command=self.toggleROI)
-        self.showArea = Button(self.app, width=15, text='SHOW ROI', font='none 12', command=self.showROI)
-        self.saveSelectedROI = Button(self.app, width=15, text='SAVE ROI', font='none 12', command=self.saveROI)
+        self.chooseRoi = Button(self.app, width=20, text='SELECT ROI', font='none 12', command=self.toggleROI)
+        self.showArea = Button(self.app, width=20, text='SHOW ROI', font='none 12', command=self.showROI)
+        self.saveSelectedROI = Button(self.app, width=20, text='SAVE ROI', font='none 12', command=self.saveROI)
         
         # Zoom Reset Button (initially hidden)
-        self.resetZoomButton = Button(self.app, width=15, text='RESET ZOOM', font='none 12', command=self.resetZoom)
+        self.resetZoomButton = Button(self.app, width=20, text='RESET ZOOM', font='none 12', command=self.resetZoom)
 
         # Grid Layout
         self.imageArea.grid(row=0, column=0, columnspan=3)
@@ -68,10 +68,10 @@ class CropApp:
         self.chooseRoi.grid(row=4, column=0, sticky="n")
         self.saveSelectedROI.grid(row=5, column=0, sticky="n")
         self.resetZoomButton.grid(row=6, column=0, sticky="n")
-        self.previousPatientImage.grid(row=7, column=0, sticky="n")
-        self.nextPatientImage.grid(row=8, column=0, sticky="n")
-        self.previousPatient.grid(row=9, column=0, sticky="n")
-        self.nextPatient.grid(row=10, column=0, sticky="n")
+        self.previousPatientImage.grid(row=7, column=0, sticky="n", padx=5)
+        self.nextPatientImage.grid(row=7, column=1, sticky="n", padx=5)
+        self.previousPatient.grid(row=8, column=0, sticky="n", padx=5)
+        self.nextPatient.grid(row=8, column=1, sticky="n", padx=5)
 
     def readImage(self):
         self.matFileIsOpen = False
