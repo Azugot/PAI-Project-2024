@@ -14,6 +14,8 @@ class CropApp:
         self.numPatient = 0
         self.imgPatient = 0
         self.zoomLevel = 1
+        self.moveX = 0 
+        self.moveY = 0
         self.savePath = savePath
         self.matFile = None
         self.areaROI = None
@@ -22,6 +24,7 @@ class CropApp:
         # Flags and Boolean variables to be used as flip-flops
         self.roiOn = False
         self.matFileIsOpen = False
+        self.zoomEnabled = True
         
         # UI Configs
         self.uiWidth = uiWidth
@@ -44,9 +47,7 @@ class CropApp:
         # Button to open Image/Mat file
         self.openImage = Button(self.app, width=20, text='OPEN IMAGE', font='none 12', command=self.readImage)
         self.openMat = Button(self.app, width=20, text='OPEN MAT DATASET', font='none 12', command=self.readMatFiles)
-        self.openImage.grid(row=1, column=0, sticky="n")
-        self.openMat.grid(row=2, column=0, sticky="n")
-
+        
         # Buttons to navigate through the images (initially hidden)
         self.nextPatient = Button(self.app, width=20, text='NEXT PATIENT', font='none 12', command=self.nextMatPatient)
         self.previousPatient = Button(self.app, width=20, text='PREVIOUS PATIENT', font='none 12', command=self.previousMatPatient)
@@ -63,13 +64,16 @@ class CropApp:
         
         # Zoom Reset Button (initially hidden)
         self.resetZoomButton = Button(self.app, width=20, text='RESET ZOOM', font='none 12', command=self.resetZoom)
-
+        self.zoomOutButton = Button(self.app, width=20, text='-', font='none 12', command=self.zoomOut)
+        self.zoomInButton = Button(self.app, width=20, text='+', font='none 12', command=self.zoomIn)
+        
         # Grid Layout
+        self.openImage.grid(row=1, column=0, sticky="n")
+        self.openMat.grid(row=2, column=0, sticky="n")
         self.imageArea.grid(row=0, column=0, columnspan=3)
-
-    def listSavedROIFiles(self):
-        # Function to list all saved ROI files
-        return [f for f in os.listdir(self.savePath) if os.path.isfile(os.path.join(self.savePath, f))]    
+        
+        self.imageArea.bind("<ButtonPress-2>", self.startMove)
+        self.imageArea.bind("<B2-Motion>", self.moveImage)
 
     #M OSTRAR BOTOES DPS DE ENVIAR A IMAGEM
     def showAdditionalButtons(self):
@@ -81,9 +85,11 @@ class CropApp:
         self.viewNTDescriptorButton.grid(row=9, column=0, sticky="n")
         self.resetZoomButton.grid(row=10, column=0, sticky="n")
         self.previousPatientImage.grid(row=11, column=0, sticky="n", padx=5)
-        self.nextPatientImage.grid(row=11, column=1, sticky="n", padx=5)
         self.previousPatient.grid(row=12, column=0, sticky="n", padx=5)
+        self.nextPatientImage.grid(row=11, column=1, sticky="n", padx=5)
         self.nextPatient.grid(row=12, column=1, sticky="n", padx=5)
+        self.zoomInButton.grid(row=13, column=2, sticky="n", padx=5)
+        self.zoomOutButton.grid(row=14, column=2, sticky="n", padx=5)
 
     def readImage(self):
         self.matFileIsOpen = False
@@ -169,6 +175,60 @@ class CropApp:
             # Display the image in the Canvas widget
             self.imageArea.create_image(0, 0, image=self.image, anchor='nw')
 
+#Z O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O 0 O O O O O O O O O O O MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+    
+    def toggleZoom(self):
+        if (self.zoomEnabled):
+            self.zoomEnabled = False
+        else:
+            self.zoomEnabled = True
+    
+    def zoomIn(self):
+        if (self.zoomEnabled):
+            self.zoomLevel += 0.1
+            
+            self.imageZoomUpdate()
+            
+    def zoomOut(self):
+        if (self.zoomEnabled):
+            self.zoomLevel -= 0.1
+            
+            self.imageZoomUpdate()
+            
+    def imageZoomUpdate(self):
+        if (self.zoomEnabled and self.image):
+            width, height = self.imageForMaskMultiplication.size
+            new_width = int(width * self.zoomLevel)
+            new_height = int(height * self.zoomLevel)
+            resized_image = self.imageForMaskMultiplication.resize((new_width, new_height), Image.LANCZOS)
+            self.image = ImageTk.PhotoImage(resized_image)
+            self.imageArea.create_image(self.moveX, self.moveY, image=self.image, anchor='nw')
+    
+    def resetZoom(self):
+       self.zoomLevel = 1
+       self.moveX, self.moveY = 0, 0
+       self.imageZoomUpdate()
+
+#M OOOOOOO VEMENT DA IMAGEM
+
+    def startMove(self, event):
+        self.pan_start_x = event.x
+        self.pan_start_y = event.y
+
+    def moveImage(self, event):
+        dx = event.x - self.pan_start_x
+        dy = event.y - self.pan_start_y
+        self.moveX += dx
+        self.moveY += dy
+        self.pan_start_x = event.x
+        self.pan_start_y = event.y
+        self.imageZoomUpdate()
+
+#ROI RELATED METHODS
+    def listSavedROIFiles(self):
+        # Function to list all saved ROI files
+        return [f for f in os.listdir(self.savePath) if os.path.isfile(os.path.join(self.savePath, f))]    
+
     def saveROI(self):
         cutROI = self.acquireROI()
         
@@ -199,7 +259,8 @@ class CropApp:
             self.chooseRoi.config(text="END SELECT ROI")
             #self.imageArea.bind("<Button-1>", self.drawROIFixed)
             self.imageArea.bind("<Button-1>", self.startDrawROI)
-            self.imageArea.bind("<B1-Motion>", self.finishDrawROI)         
+            self.imageArea.bind("<B1-Motion>", self.finishDrawROI)
+            self.zoomEnabled = False
            
     def startDrawROI(self, event):
         self.startX = event.x
@@ -211,28 +272,6 @@ class CropApp:
         if (self.roiOn and self.areaROI):
             self.imageArea.coords(self.areaROI, self.startX, self.startY, event.x, event.y)
 
-    # S C R O L L
-    def createScrollableCanvas(self, parentWindow):
-        # Function to create a scrollable canvas
-        canvas = Canvas(parentWindow)
-        scrollbar = Scrollbar(parentWindow, orient="vertical", command=canvas.yview)
-        scrollable_frame = Frame(canvas)
-
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(
-                scrollregion=canvas.bbox("all")
-            )
-        )
-
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        return scrollable_frame
-
     def drawROIFixed(self, event):
         if (self.roiOn):
             self.deleteROIarea()
@@ -241,7 +280,7 @@ class CropApp:
             self.startY = event.y
 
             self.areaROI = self.imageArea.create_rectangle(self.startX-14, self.startY-14, self.startX+14, self.startY+14, outline="red", width=2)
-    
+
     #TODO: Fix this method for generic Images 
     def acquireROI(self):    
         self.imageArea.itemconfig(self.areaROI, outline = "green")
@@ -268,7 +307,30 @@ class CropApp:
             cutROI = self.acquireROI()
 
             cutROI.show()
+            
+            
+    # S C R O L L
+    def createScrollableCanvas(self, parentWindow):
+        # Function to create a scrollable canvas
+        canvas = Canvas(parentWindow)
+        scrollbar = Scrollbar(parentWindow, orient="vertical", command=canvas.yview)
+        scrollable_frame = Frame(canvas)
 
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        return scrollable_frame
+    
     def nextMatPatient(self):
         if (self.matFileIsOpen):
             if self.numPatient >= 54:
@@ -324,35 +386,6 @@ class CropApp:
             
             if (self.imgPatient >= 0 and self.imgPatient <= 9):
                 self.navigateThroughMatFile(self.numPatient, self.imgPatient)
-   
-    def resetZoom(self):
-       self.zoomLevel = 1
-
-    # S A L V A
-    def viewSavedROIs(self):
-        # Create a new window to display saved ROIs
-        roiWindow = Toplevel(self.app)
-        roiWindow.title("Saved ROIs")
-        roiWindow.geometry("800x600")
-
-        # Add a scrollable canvas
-        scrollable_frame = self.createScrollableCanvas(roiWindow)
-
-        # List all files in the savePath directory
-        roiFiles = self.listSavedROIFiles()
-
-        # Abre uma janela nova 
-        row = 0
-        for roiFile in roiFiles:
-            roiPath = os.path.join(self.savePath, roiFile)
-            roiImage = Image.open(roiPath)
-            roiImage = roiImage.resize((200, 200), Image.LANCZOS)
-            roiPhoto = ImageTk.PhotoImage(roiImage)
-
-            label = Label(scrollable_frame, image=roiPhoto)
-            label.image = roiPhoto
-            label.grid(row=row // 4, column=row % 4, padx=5, pady=5)
-            row += 1
 
     # H I S T O G R A M A
     def viewHistograms(self):
