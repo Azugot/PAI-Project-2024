@@ -59,6 +59,7 @@ class CropApp:
         self.saveSelectedROI = Button(self.app, width=20, text='SAVE ROI', font='none 12', command=self.saveROI)
         self.viewHistogramsButton = Button(self.app, width=20, text='VIEW HISTOGRAMS', font='none 12', command=self.viewHistograms)
         self.viewGLCMButton = Button(self.app, width=20, text='VIEW GLCM & TEXTURE', font='none 12', command=self.viewGLCM)
+        self.viewNTDescriptorButton = Button(self.app, width=20, text='VIEW NT DESCRIPTOR', font='none 12', command=self.viewNTDescriptorMatricula)
         
         # Zoom Reset Button (initially hidden)
         self.resetZoomButton = Button(self.app, width=20, text='RESET ZOOM', font='none 12', command=self.resetZoom)
@@ -77,11 +78,12 @@ class CropApp:
         self.saveSelectedROI.grid(row=5, column=0, sticky="n")
         self.viewHistogramsButton.grid(row=7, column=0, sticky="n")
         self.viewGLCMButton.grid(row=8, column=0, sticky="n")
-        self.resetZoomButton.grid(row=9, column=0, sticky="n")
-        self.previousPatientImage.grid(row=10, column=0, sticky="n", padx=5)
-        self.nextPatientImage.grid(row=10, column=1, sticky="n", padx=5)
-        self.previousPatient.grid(row=11, column=0, sticky="n", padx=5)
-        self.nextPatient.grid(row=11, column=1, sticky="n", padx=5)
+        self.viewNTDescriptorButton.grid(row=9, column=0, sticky="n")
+        self.resetZoomButton.grid(row=10, column=0, sticky="n")
+        self.previousPatientImage.grid(row=11, column=0, sticky="n", padx=5)
+        self.nextPatientImage.grid(row=11, column=1, sticky="n", padx=5)
+        self.previousPatient.grid(row=12, column=0, sticky="n", padx=5)
+        self.nextPatient.grid(row=12, column=1, sticky="n", padx=5)
 
     def readImage(self):
         self.matFileIsOpen = False
@@ -208,6 +210,28 @@ class CropApp:
         if (self.roiOn and self.areaROI):
             self.imageArea.coords(self.areaROI, self.startX, self.startY, event.x, event.y)
 
+    # S C R O L L
+    def createScrollableCanvas(self, parentWindow):
+        # Function to create a scrollable canvas
+        canvas = Canvas(parentWindow)
+        scrollbar = Scrollbar(parentWindow, orient="vertical", command=canvas.yview)
+        scrollable_frame = Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        return scrollable_frame
+
     def drawROIFixed(self, event):
         if (self.roiOn):
             self.deleteROIarea()
@@ -311,24 +335,9 @@ class CropApp:
         roiWindow.geometry("800x600")
 
         # Add a scrollable canvas
-        canvas = Canvas(roiWindow)
-        scrollbar = Scrollbar(roiWindow, orient="vertical", command=canvas.yview)
-        scrollable_frame = Frame(canvas)
+        scrollable_frame = self.createScrollableCanvas(roiWindow)
 
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(
-                scrollregion=canvas.bbox("all")
-            )
-        )
-
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        # Pega todos os arquivos salvos
+        # List all files in the savePath directory
         roiFiles = self.listSavedROIFiles()
 
         # Abre uma janela nova 
@@ -352,22 +361,7 @@ class CropApp:
         histWindow.geometry("1200x800")
 
         # coloca um scroll
-        canvas = Canvas(histWindow)
-        scrollbar = Scrollbar(histWindow, orient="vertical", command=canvas.yview)
-        scrollable_frame = Frame(canvas)
-
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(
-                scrollregion=canvas.bbox("all")
-            )
-        )
-
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        scrollable_frame = self.createScrollableCanvas(histWindow)
 
         # Pega todos os arquivos salvos
         roiFiles = self.listSavedROIFiles()
@@ -411,23 +405,7 @@ class CropApp:
         glcmWindow.geometry("1200x800")
 
         #Barra de rolagem
-        canvas = Canvas(glcmWindow)
-        scrollbar = Scrollbar(glcmWindow, orient="vertical", command=canvas.yview)
-        scrollable_frame = Frame(canvas)
-
-        #barra de rolagem fica dinamica conforme o conteudo da pagina
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(
-                scrollregion=canvas.bbox("all")
-            )
-        )
-
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        scrollable_frame = self.createScrollableCanvas(glcmWindow)
 
         # Pega todos os arquivos salvos
         roiFiles = self.listSavedROIFiles()
@@ -476,7 +454,65 @@ class CropApp:
             # Alinhamentos
             featuresLabel = Label(frame, text=featuresText, font='none 12', justify='left')
             featuresLabel.pack(side='right', padx=10)   
-    
+
+    def viewNTDescriptorMatricula(self):
+        # Calcula NT
+        matriculas = [766639, 772198]
+        NT = sum(matriculas) % 4
+
+        # Cria uma janela nova
+        ntWindow = Toplevel(self.app)
+        ntWindow.title("NT Descriptor of Saved ROIs")
+        ntWindow.geometry("1200x800")
+
+        # Barra de rolagem
+        scrollable_frame = self.createScrollableCanvas(ntWindow)
+
+        # Pega todos os arquivos salvos
+        roiFiles = self.listSavedROIFiles()
+
+        # Calcula a matriz GLCM
+        for roiFile in roiFiles:
+            roiPath = os.path.join(self.savePath, roiFile)
+            roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
+
+            # Cria GLCM matrix
+            glcm = graycomatrix(roiImage, distances=[1], angles=[0], levels=256, symmetric=True, normed=True)
+
+            # Escolhe o descritor baseado em NT
+            if NT == 0:
+                descriptor_value = greycoprops(glcm, 'contrast')[0, 0]
+                descriptor_name = 'Contrast'
+            elif NT == 1:
+                descriptor_value = greycoprops(glcm, 'dissimilarity')[0, 0]
+                descriptor_name = 'Dissimilarity'
+            elif NT == 2:
+                descriptor_value = greycoprops(glcm, 'homogeneity')[0, 0]
+                descriptor_name = 'Homogeneity'
+            elif NT == 3:
+                descriptor_value = greycoprops(glcm, 'energy')[0, 0]
+                descriptor_name = 'Energy'
+
+            # Exibe as imagens e o resultado um do lado do outro
+            frame = Frame(scrollable_frame)
+            frame.pack(pady=10)
+
+            # Mostra a ROI
+            roiPIL = Image.fromarray(roiImage)
+            roiPIL = roiPIL.resize((200, 200), Image.LANCZOS)
+            roiPhoto = ImageTk.PhotoImage(roiPIL)
+            imgLabel = Label(frame, image=roiPhoto)
+            imgLabel.image = roiPhoto 
+            imgLabel.pack(side='left', padx=10)
+
+            # Mostra o descritor
+            featuresText = (
+                f"{descriptor_name}: {descriptor_value:.4f}"
+            )
+
+            # Alinhamentos
+            featuresLabel = Label(frame, text=featuresText, font='none 12', justify='left')
+            featuresLabel.pack(side='right', padx=10)     
 
 if __name__ == "__main__":
     root = Tk()
