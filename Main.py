@@ -457,7 +457,7 @@ class CropApp:
 
     def viewNTDescriptorMatricula(self):
         # Calcula NT
-        matriculas = [766639, 772198]
+        matriculas = [766639, 772198, 1378247]
         NT = sum(matriculas) % 4
 
         # Cria uma janela nova
