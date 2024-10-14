@@ -24,7 +24,7 @@ class CropApp:
         # Flags and Boolean variables to be used as flip-flops
         self.roiOn = False
         self.matFileIsOpen = False
-        self.zoomEnabled = True
+        self.zoomEnabled = False
         
         # UI Configs
         self.uiWidth = uiWidth
@@ -66,6 +66,7 @@ class CropApp:
         self.resetZoomButton = Button(self.app, width=20, text='RESET ZOOM', font='none 12', command=self.resetZoom)
         self.zoomOutButton = Button(self.app, width=20, text='-', font='none 12', command=self.zoomOut)
         self.zoomInButton = Button(self.app, width=20, text='+', font='none 12', command=self.zoomIn)
+        self.toggleZoomButton = Button(self.app, width=20, text='ENABLE ZOOM', font='none 12', command=self.toggleZoom)
         
         # Grid Layout
         self.openImage.grid(row=1, column=0, sticky="n")
@@ -79,15 +80,16 @@ class CropApp:
     def showAdditionalButtons(self):
         self.showArea.grid(row=3, column=0, sticky="n")
         self.chooseRoi.grid(row=4, column=0, sticky="n")
+        self.toggleZoomButton.grid(row=4, column=1, sticky="n", padx=5)
         self.saveSelectedROI.grid(row=5, column=0, sticky="n")
         self.viewHistogramsButton.grid(row=7, column=0, sticky="n")
         self.viewGLCMButton.grid(row=8, column=0, sticky="n")
         self.viewNTDescriptorButton.grid(row=9, column=0, sticky="n")
-        self.resetZoomButton.grid(row=10, column=0, sticky="n")
         self.previousPatientImage.grid(row=11, column=0, sticky="n", padx=5)
         self.previousPatient.grid(row=12, column=0, sticky="n", padx=5)
         self.nextPatientImage.grid(row=11, column=1, sticky="n", padx=5)
         self.nextPatient.grid(row=12, column=1, sticky="n", padx=5)
+        self.resetZoomButton.grid(row=10, column=0, sticky="n")
         self.zoomInButton.grid(row=13, column=2, sticky="n", padx=5)
         self.zoomOutButton.grid(row=14, column=2, sticky="n", padx=5)
 
@@ -175,13 +177,21 @@ class CropApp:
             # Display the image in the Canvas widget
             self.imageArea.create_image(0, 0, image=self.image, anchor='nw')
 
-#Z O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O 0 O O O O O O O O O O O MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
-    
+#Z O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O 0 O O O O O O O O O O O MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM 
     def toggleZoom(self):
         if (self.zoomEnabled):
+            self.toggleZoomButton.config(text="ENABLE ZOOM")
             self.zoomEnabled = False
+            self.resetZoom()
         else:
+            self.toggleZoomButton.config(text="DISABLE ZOOM")
             self.zoomEnabled = True
+            #ROI STUFF
+            self.roiOn = False
+            self.chooseRoi.config(text="SELECT ROI")
+            self.imageArea.unbind("<Button-1>")
+            self.imageArea.unbind("<B1-Motion>")
+            self.deleteROIarea()
     
     def zoomIn(self):
         if (self.zoomEnabled):
@@ -196,13 +206,12 @@ class CropApp:
             self.imageZoomUpdate()
             
     def imageZoomUpdate(self):
-        if (self.zoomEnabled and self.image):
-            width, height = self.imageForMaskMultiplication.size
-            new_width = int(width * self.zoomLevel)
-            new_height = int(height * self.zoomLevel)
-            resized_image = self.imageForMaskMultiplication.resize((new_width, new_height), Image.LANCZOS)
-            self.image = ImageTk.PhotoImage(resized_image)
-            self.imageArea.create_image(self.moveX, self.moveY, image=self.image, anchor='nw')
+        width, height = self.imageForMaskMultiplication.size
+        new_width = int(width * self.zoomLevel)
+        new_height = int(height * self.zoomLevel)
+        resized_image = self.imageForMaskMultiplication.resize((new_width, new_height), Image.LANCZOS)
+        self.image = ImageTk.PhotoImage(resized_image)
+        self.imageArea.create_image(self.moveX, self.moveY, image=self.image, anchor='nw')
     
     def resetZoom(self):
        self.zoomLevel = 1
@@ -210,7 +219,6 @@ class CropApp:
        self.imageZoomUpdate()
 
 #M OOOOOOO VEMENT DA IMAGEM
-
     def startMove(self, event):
         self.pan_start_x = event.x
         self.pan_start_y = event.y
@@ -260,7 +268,11 @@ class CropApp:
             #self.imageArea.bind("<Button-1>", self.drawROIFixed)
             self.imageArea.bind("<Button-1>", self.startDrawROI)
             self.imageArea.bind("<B1-Motion>", self.finishDrawROI)
+            #ZOOM STUFF
+            self.toggleZoomButton.config(text="ENABLE ZOOM")
             self.zoomEnabled = False
+            self.resetZoom()
+            self.imageZoomUpdate()
            
     def startDrawROI(self, event):
         self.startX = event.x
