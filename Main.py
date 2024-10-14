@@ -1,11 +1,12 @@
 from tkinter import Label, filedialog, Canvas, Button, Tk, Toplevel, Frame, Scrollbar, Canvas
 from PIL import Image, ImageTk
+import tkinter as tk
 import numpy as np 
 import cv2
 import os
 import scipy.io
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from skimage.feature import graycomatrix, graycoprops as greycoprops
 
 class CropApp:
@@ -145,6 +146,7 @@ class CropApp:
             self.imageArea.create_image(0, 0, image=self.image, anchor='nw')
 
             self.showAdditionalButtons()
+            self.showHistogram(matImage)
 
     def navigateThroughMatFile(self, numPatient,imgPatient):
         if(self.matFileIsOpen and self.path):
@@ -176,6 +178,7 @@ class CropApp:
 
             # Display the image in the Canvas widget
             self.imageArea.create_image(0, 0, image=self.image, anchor='nw')
+            self.showHistogram(matImage)
 
 #Z O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O 0 O O O O O O O O O O O MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM 
     def toggleZoom(self):
@@ -442,6 +445,44 @@ class CropApp:
             canvas_hist = FigureCanvasTkAgg(fig, master=frame)
             canvas_hist.draw()
             canvas_hist.get_tk_widget().pack(side='right', padx=10)
+
+
+    def showHistogram(self, matImage):
+        # Verifica se uma janela de histograma já está aberta e a fecha
+        if hasattr(self, 'histWindow') and self.histWindow.winfo_exists():
+            self.histWindow.destroy()
+
+        # Converte a imagem para tons de cinza, se não for
+        if len(matImage.shape) == 3 and matImage.shape[2] == 3:
+            matImage = cv2.cvtColor(matImage, cv2.COLOR_RGB2GRAY)
+
+        # Calcula o histograma da imagem
+        hist = cv2.calcHist([matImage], [0], None, [256], [0, 256])
+
+        # Cria uma nova janela para exibir o histograma e armazena a referência
+        self.histWindow = Toplevel(self.app)
+        self.histWindow.title(f"Image Histogram - Paciente {self.numPatient} - Imagem {self.imgPatient}")
+        self.histWindow.geometry("600x400")
+
+        # Plota o histograma usando matplotlib
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.plot(hist, color='black')
+        ax.set_title(f"Grayscale Histogram - Paciente {self.numPatient} - Imagem {self.imgPatient}")
+        ax.set_xlim([0, 256])
+
+        # Limita a escala do eixo y (por exemplo, máximo de 2000)
+        ax.set_ylim([0, 2000])
+
+        # Exibe o gráfico em uma janela Tkinter
+        canvas_hist = FigureCanvasTkAgg(fig, master=self.histWindow)
+        canvas_hist.draw()
+        canvas_hist.get_tk_widget().pack()
+
+        # Fecha a janela de plotagem ao fechá-la na interface
+        toolbar = NavigationToolbar2Tk(canvas_hist, self.histWindow)
+        toolbar.update()
+        canvas_hist.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
 
     # M A T R I Z
     def viewGLCM(self):
