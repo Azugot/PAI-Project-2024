@@ -197,6 +197,7 @@ class CropApp:
         else:
             self.roiOn = True
             self.chooseRoi.config(text="END SELECT ROI")
+            #self.imageArea.bind("<Button-1>", self.drawROIFixed)
             self.imageArea.bind("<Button-1>", self.startDrawROI)
             self.imageArea.bind("<B1-Motion>", self.finishDrawROI)         
            

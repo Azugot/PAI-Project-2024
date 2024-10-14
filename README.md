@@ -5,8 +5,7 @@ To install the required dependencies using pip, follow these steps:
 2. Run the following command to install the dependencies:
 
     ```
-    pip install opencv-python tk matplotlib scipy
-    pip install scikit-image
+    pip install opencv-python tk matplotlib scipy scikit-image
     ```
 
 Once the dependencies are installed, you can run the `main.py` file by executing the following command:
