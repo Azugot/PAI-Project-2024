@@ -556,7 +556,66 @@ class CropApp:
 
             # Alinhamentos
             featuresLabel = Label(frame, text=featuresText, font='none 12', justify='left')
-            featuresLabel.pack(side='right', padx=10)      
+            featuresLabel.pack(side='right', padx=10)   
+
+    def viewNTDescriptorMatricula(self):
+        # Calcula NT
+        matriculas = [766639, 772198, 1378247]
+        NT = sum(matriculas) % 4
+
+        # Cria uma janela nova
+        ntWindow = Toplevel(self.app)
+        ntWindow.title("NT Descriptor of Saved ROIs")
+        ntWindow.geometry("1200x800")
+
+        # Barra de rolagem
+        scrollable_frame = self.createScrollableCanvas(ntWindow)
+
+        # Pega todos os arquivos salvos
+        roiFiles = self.listSavedROIFiles()
+
+        # Calcula a matriz GLCM
+        for roiFile in roiFiles:
+            roiPath = os.path.join(self.savePath, roiFile)
+            roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
+
+            # Cria GLCM matrix
+            glcm = graycomatrix(roiImage, distances=[1], angles=[0], levels=256, symmetric=True, normed=True)
+
+            # Escolhe o descritor baseado em NT
+            if NT == 0:
+                descriptor_value = greycoprops(glcm, 'contrast')[0, 0]
+                descriptor_name = 'Contrast'
+            elif NT == 1:
+                descriptor_value = greycoprops(glcm, 'dissimilarity')[0, 0]
+                descriptor_name = 'Dissimilarity'
+            elif NT == 2:
+                descriptor_value = greycoprops(glcm, 'homogeneity')[0, 0]
+                descriptor_name = 'Homogeneity'
+            elif NT == 3:
+                descriptor_value = greycoprops(glcm, 'energy')[0, 0]
+                descriptor_name = 'Energy'
+
+            # Exibe as imagens e o resultado um do lado do outro
+            frame = Frame(scrollable_frame)
+            frame.pack(pady=10)
+
+            # Mostra a ROI
+            roiPIL = Image.fromarray(roiImage)
+            roiPIL = roiPIL.resize((200, 200), Image.LANCZOS)
+            roiPhoto = ImageTk.PhotoImage(roiPIL)
+            imgLabel = Label(frame, image=roiPhoto)
+            imgLabel.image = roiPhoto 
+            imgLabel.pack(side='left', padx=10)
+
+            # Mostra o descritor
+            featuresText = (
+                f"{descriptor_name}: {descriptor_value:.4f}"
+            )
+
+            # Alinhamentos
+            featuresLabel = Label(frame, text=featuresText, font='none 12', justify='left')
+            featuresLabel.pack(side='right', padx=10)     
 
     def viewGLCMRadial(self):
         # Cria nova aba
