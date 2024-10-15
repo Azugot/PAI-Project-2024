@@ -54,6 +54,7 @@ class CropApp:
         self.previousPatient = Button(self.app, width=20, text='PREVIOUS PATIENT', font='none 12', command=self.previousMatPatient)
         self.nextPatientImage = Button(self.app, width=20, text='NEXT PATIENT IMAGE', font='none 12', command=self.nextMatPatientImage)
         self.previousPatientImage = Button(self.app, width=20, text='PREVIOUS PATIENT IMAGE', font='none 12', command=self.previousMatPatientImage)
+        self.viewGLCMRadialButton = Button(self.app, width=20, text='VIEW GLCM RADIAL', font='none 12', command=self.viewGLCMRadial)
         
         # ROI Related Buttons (initially hidden)
         self.chooseRoi = Button(self.app, width=20, text='SELECT ROI', font='none 12', command=self.toggleROI)
@@ -90,9 +91,10 @@ class CropApp:
         self.previousPatient.grid(row=12, column=0, sticky="n", padx=5)
         self.nextPatientImage.grid(row=11, column=1, sticky="n", padx=5)
         self.nextPatient.grid(row=12, column=1, sticky="n", padx=5)
+        self.viewGLCMRadialButton.grid(row=13, column=0, sticky="n")
         self.resetZoomButton.grid(row=10, column=0, sticky="n")
-        self.zoomInButton.grid(row=13, column=2, sticky="n", padx=5)
-        self.zoomOutButton.grid(row=14, column=2, sticky="n", padx=5)
+        self.zoomInButton.grid(row=14, column=2, sticky="n", padx=5)
+        self.zoomOutButton.grid(row=15, column=2, sticky="n", padx=5)
 
     def readImage(self):
         self.matFileIsOpen = False
@@ -446,7 +448,6 @@ class CropApp:
             canvas_hist.draw()
             canvas_hist.get_tk_widget().pack(side='right', padx=10)
 
-
     def showHistogram(self, matImage):
         # Verifica se uma janela de histograma já está aberta e a fecha
         if hasattr(self, 'histWindow') and self.histWindow.winfo_exists():
@@ -482,7 +483,6 @@ class CropApp:
         toolbar = NavigationToolbar2Tk(canvas_hist, self.histWindow)
         toolbar.update()
         canvas_hist.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
-
 
     # M A T R I Z
     def viewGLCM(self):
@@ -600,6 +600,70 @@ class CropApp:
             # Alinhamentos
             featuresLabel = Label(frame, text=featuresText, font='none 12', justify='left')
             featuresLabel.pack(side='right', padx=10)     
+
+    def viewGLCMRadial(self):
+        # Cria nova aba
+        glcmWindow = Toplevel(self.app)
+        glcmWindow.title("Radial GLCM & Texture Features of Saved ROIs")
+        glcmWindow.geometry("1200x800")
+
+        # Scroll
+        scrollable_frame = self.createScrollableCanvas(glcmWindow)
+
+        #Pega todos os arquivos
+        roiFiles = self.listSavedROIFiles()
+
+        # Calcula a distancia entre 1, 2, 4, 8
+        distances = [1, 2, 4, 8]
+        for roiFile in roiFiles:
+            roiPath = os.path.join(self.savePath, roiFile)
+            roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
+
+            frame = Frame(scrollable_frame)
+            frame.pack(pady=20)
+
+            roiPIL = Image.fromarray(roiImage)
+            roiPIL = roiPIL.resize((200, 200), Image.LANCZOS)
+            roiPhoto = ImageTk.PhotoImage(roiPIL)
+            imgLabel = Label(frame, image=roiPhoto)
+            imgLabel.image = roiPhoto
+            imgLabel.pack(side='top', pady=10)
+
+            textFrame = Frame(frame)
+            textFrame.pack(side='top', pady=10)
+
+            half = len(distances) // 2
+            leftFrame = Frame(textFrame)
+            leftFrame.pack(side='left', padx=20)
+
+            rightFrame = Frame(textFrame)
+            rightFrame.pack(side='left', padx=20)
+
+            # Calcula GLCMs para diferentes texturas e distancias e coloca em duas colunas
+            for i, distance in enumerate(distances):
+                glcm = graycomatrix(roiImage, distances=[distance], angles=[0], levels=256, symmetric=True, normed=True)
+                contrast = greycoprops(glcm, 'contrast')[0, 0]
+                dissimilarity = greycoprops(glcm, 'dissimilarity')[0, 0]
+                homogeneity = greycoprops(glcm, 'homogeneity')[0, 0]
+                energy = greycoprops(glcm, 'energy')[0, 0]
+                correlation = greycoprops(glcm, 'correlation')[0, 0]
+
+                featuresText = (
+                    f"Distance {distance} px:\n"
+                    f"  Contrast: {contrast:.4f}\n"
+                    f"  Dissimilarity: {dissimilarity:.4f}\n"
+                    f"  Homogeneity: {homogeneity:.4f}\n"
+                    f"  Energy: {energy:.4f}\n"
+                    f"  Correlation: {correlation:.4f}\n"
+                )
+
+                # Adiciona as propriedades em duas colunas
+                if i < half:
+                    featuresLabel = Label(leftFrame, text=featuresText, font='none 12', justify='left', anchor='w')
+                    featuresLabel.pack(pady=5)
+                else:
+                    featuresLabel = Label(rightFrame, text=featuresText, font='none 12', justify='left', anchor='w')
+                    featuresLabel.pack(pady=5)        
 
 if __name__ == "__main__":
     root = Tk()
