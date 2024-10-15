@@ -74,7 +74,8 @@ class CropApp:
         self.saveSelectedROI = Button(self.app, width=20, text='SAVE ROI', font='none 12', command=self.saveROI)
         self.viewHistogramsButton = Button(self.app, width=20, text='VIEW HISTOGRAMS', font='none 12', command=self.viewHistograms)
         self.viewGLCMButton = Button(self.app, width=20, text='VIEW GLCM & TEXTURE', font='none 12', command=self.viewGLCM)
-        self.viewNTDescriptorButton = Button(self.app, width=20, text='VIEW NT DESCRIPTOR', font='none 12', command=self.viewNTDescriptorMatricula)
+        self.viewNTDescriptorButton = Button(self.app, width=20, text='VIEW NT DESCRIPTOR', font='none 12')
+        #self.viewNTDescriptorButton = Button(self.app, width=20, text='VIEW NT DESCRIPTOR', font='none 12', command=self.viewNTDescriptorMatricula)
         
         # Zoom Reset Button (initially hidden)
         self.resetZoomButton = Button(self.app, width=20, text='RESET ZOOM', font='none 12', command=self.resetZoom)
@@ -162,7 +163,7 @@ class CropApp:
 
         fig, ax = plt.subplots(figsize=(4, 2.5))
         ax.plot(hist, color='black')
-        ax.set_title("Grayscale Histogram")
+        ax.set_title(f"Grayscale Histogram - Paciente {self.numPatient}, Imagem {self.imgPatient}")
         ax.set_xlim([0, 256])
 
         max_value = np.percentile(hist, 95)  
