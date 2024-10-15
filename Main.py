@@ -42,20 +42,16 @@ class CropApp:
         self.app.title('CROP')
         self.app.geometry('1000x700')
 
-        # Frame para a imagem
         self.imageFrame = tk.Frame(self.app, width=uiWidth, height=uiHeight, bg='#C8C8C8')
         self.imageFrame.grid(row=0, column=0, padx=10, pady=10)
 
-        # Frame para o histograma
         self.histFrame = tk.Frame(self.app, width=uiWidth, height=uiHeight, bg='#E8E8E8')
         self.histFrame.grid(row=0, column=1, padx=5, pady=5)
 
-        # Canvas para a imagem dentro do frame de imagem
         self.imageArea = Canvas(self.imageFrame, width=uiWidth, height=uiHeight, bg='#C8C8C8')
         self.imageArea.pack()
 
-        # Canvas para o histograma - ajuste o tamanho aqui
-        self.histCanvas = Canvas(self.histFrame, width=uiWidth, height=uiHeight, bg='#E8E8E8')  # Aumente width e height conforme necessário
+        self.histCanvas = Canvas(self.histFrame, width=uiWidth, height=uiHeight, bg='#E8E8E8')
         self.histCanvas.pack()
 
 
