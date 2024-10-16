@@ -179,7 +179,7 @@ class CropApp:
 
         fig, ax = plt.subplots(figsize=(4, 2.5))
         ax.plot(hist, color='black')
-        ax.set_title("Grayscale Histogram")
+        ax.set_title(f"Grayscale Histogram - Paciente {self.numPatient}, Imagem {self.imgPatient}")
         ax.set_xlim([0, 256])
 
         max_value = np.percentile(hist, 95)  
