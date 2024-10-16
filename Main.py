@@ -17,18 +17,18 @@ class CropApp:
         self.numPatient = 0
         self.imgPatient = 0
         self.zoomLevel = 1
-        self.moveX = 0
+        self.moveX = 0 
         self.moveY = 0
         self.savePath = savePath
         self.matFile = None
         self.areaROI = None
         self.pathROI = None
-
+        
         # Flags and Boolean variables to be used as flip-flops
         self.roiOn = False
         self.matFileIsOpen = False
         self.zoomEnabled = False
-
+        
         # UI Configs
         self.uiWidth = uiWidth
         self.uiHeight = uiHeight
@@ -40,34 +40,37 @@ class CropApp:
 
         self.app = root
         self.app.title('CROP')
-        self.app.geometry('1000x700')
+        self.app.geometry('700x700')
 
+        # Frame para a imagem
         self.imageFrame = tk.Frame(self.app, width=uiWidth, height=uiHeight, bg='#C8C8C8')
         self.imageFrame.grid(row=0, column=0, padx=10, pady=10)
 
+        # Frame para o histograma
         self.histFrame = tk.Frame(self.app, width=uiWidth, height=uiHeight, bg='#E8E8E8')
         self.histFrame.grid(row=0, column=1, padx=5, pady=5)
 
+        # Canvas para a imagem dentro do frame de imagem
         self.imageArea = Canvas(self.imageFrame, width=uiWidth, height=uiHeight, bg='#C8C8C8')
         self.imageArea.pack()
 
-        self.histCanvas = Canvas(self.histFrame, width=uiWidth, height=uiHeight, bg='#E8E8E8')
+        # Canvas para o histograma - ajuste o tamanho aqui
+        self.histCanvas = Canvas(self.histFrame, width=uiWidth, height=uiHeight, bg='#E8E8E8')  # Aumente width e height conforme necessário
         self.histCanvas.pack()
-
 
         # B U T T O N S
 
         # Button to open Image/Mat file
         self.openImage = Button(self.app, width=20, text='OPEN IMAGE', font='none 12', command=self.readImage)
         self.openMat = Button(self.app, width=20, text='OPEN MAT DATASET', font='none 12', command=self.readMatFiles)
-       
+        
         # Buttons to navigate through the images (initially hidden)
         self.nextPatient = Button(self.app, width=20, text='NEXT PATIENT', font='none 12', command=self.nextMatPatient)
         self.previousPatient = Button(self.app, width=20, text='PREVIOUS PATIENT', font='none 12', command=self.previousMatPatient)
         self.nextPatientImage = Button(self.app, width=20, text='NEXT PATIENT IMAGE', font='none 12', command=self.nextMatPatientImage)
         self.previousPatientImage = Button(self.app, width=20, text='PREVIOUS PATIENT IMAGE', font='none 12', command=self.previousMatPatientImage)
         self.viewGLCMRadialButton = Button(self.app, width=20, text='VIEW GLCM RADIAL', font='none 12', command=self.viewGLCMRadial)
-
+        
         # ROI Related Buttons (initially hidden)
         self.chooseRoi = Button(self.app, width=20, text='SELECT ROI', font='none 12', command=self.toggleROI)
         self.showArea = Button(self.app, width=20, text='SHOW ROI', font='none 12', command=self.showROI)
@@ -81,7 +84,7 @@ class CropApp:
         self.zoomOutButton = Button(self.app, width=20, text='-', font='none 12', command=self.zoomOut)
         self.zoomInButton = Button(self.app, width=20, text='+', font='none 12', command=self.zoomIn)
         self.toggleZoomButton = Button(self.app, width=20, text='ENABLE ZOOM', font='none 12', command=self.toggleZoom)
-
+        
         # Grid Layout
         self.openImage.grid(row=1, column=0, sticky="n")
         self.openMat.grid(row=2, column=0, sticky="n")
@@ -136,7 +139,7 @@ class CropApp:
             self.mask[self.lasY+1][self.lasX+1] = 0 
             self.mask[self.lasY-1][self.lasX-1] = 0 
             self.mask[self.lasY+1][self.lasX-1] = 0 
-            self.mask[self.lasY-1][self.lasX+1] = 0 
+            self.mask[self.lasY-1][self.lasX+1] = 0
 
     def readMatFiles(self):
         self.path = filedialog.askopenfilename()
@@ -144,18 +147,32 @@ class CropApp:
         self.imgPatient = 0
         self.numPatient = 0
 
-        if self.path:
+        if (self.path):
+            # Flag to indicate that a .mat is open
             self.matFileIsOpen = True
+            
+            # Load matrix into data variable
             data = scipy.io.loadmat(self.path)
-            dataArray = data['data']
-            matImage = np.array(dataArray[0, self.numPatient]['images'][self.imgPatient])
-            pilImage = Image.fromarray(matImage).resize((self.uiWidth, self.uiHeight), Image.LANCZOS)
-            self.imageArea.delete("all")  
-            self.histCanvas.delete("all") 
+
+            dataArray = data['data'] 
+            input = dataArray[0, self.numPatient]
+            matImagens = input['images']
+            matImage = matImagens[self.imgPatient]
+
+            matImage = np.array(matImage)
+            pilImage = Image.fromarray(matImage)
+
+            pilImage = pilImage.resize((self.uiWidth, self.uiHeight), Image.LANCZOS)
+
+            # Update the image references
             self.image = ImageTk.PhotoImage(pilImage)
+            self.imageForMaskMultiplication = pilImage
+
+            # Display the image in the Canvas widget
             self.imageArea.create_image(0, 0, image=self.image, anchor='nw')
-            self.showHistogram(matImage)
+
             self.showAdditionalButtons()
+            self.showHistogram(matImage)
 
     def showHistogram(self, matImage):
         hist = cv2.calcHist([matImage], [0], None, [256], [0, 256]).ravel() 
@@ -481,24 +498,41 @@ class CropApp:
             canvas_hist.draw()
             canvas_hist.get_tk_widget().pack(side='right', padx=10)
 
-
     # def showHistogram(self, matImage):
-    #     # Calcula o histograma da imagem em tons de cinza
+    #     # Verifica se uma janela de histograma já está aberta e a fecha
+    #     if hasattr(self, 'histWindow') and self.histWindow.winfo_exists():
+    #         self.histWindow.destroy()
+
+    #     # Converte a imagem para tons de cinza, se não for
+    #     if len(matImage.shape) == 3 and matImage.shape[2] == 3:
+    #         matImage = cv2.cvtColor(matImage, cv2.COLOR_RGB2GRAY)
+
+    #     # Calcula o histograma da imagem
     #     hist = cv2.calcHist([matImage], [0], None, [256], [0, 256])
 
-    #     # Cria uma figura do histograma usando matplotlib
-    #     fig, ax = plt.subplots(figsize=(3, 2))
+    #     # Cria uma nova janela para exibir o histograma e armazena a referência
+    #     self.histWindow = Toplevel(self.app)
+    #     self.histWindow.title(f"Image Histogram - Paciente {self.numPatient} - Imagem {self.imgPatient}")
+    #     self.histWindow.geometry("600x400")
+
+    #     # Plota o histograma usando matplotlib
+    #     fig, ax = plt.subplots(figsize=(6, 4))
     #     ax.plot(hist, color='black')
-    #     ax.set_title("Grayscale Histogram")
+    #     ax.set_title(f"Grayscale Histogram - Paciente {self.numPatient} - Imagem {self.imgPatient}")
     #     ax.set_xlim([0, 256])
-    #     ax.set_ylim([0, 2000])  # Ajuste conforme necessário
 
-    #     # Embed o gráfico matplotlib no Tkinter usando FigureCanvasTkAgg
-    #     canvas_hist = FigureCanvasTkAgg(fig, master=self.app)
+    #     # Limita a escala do eixo y (por exemplo, máximo de 2000)
+    #     ax.set_ylim([0, 2000])
+
+    #     # Exibe o gráfico em uma janela Tkinter
+    #     canvas_hist = FigureCanvasTkAgg(fig, master=self.histWindow)
     #     canvas_hist.draw()
-    #     canvas_hist.get_tk_widget().grid(row=0, column=1)  # Exibe na coluna ao lado da imagem
-    #     plt.close(fig)  # Fecha a figura para liberar memória
+    #     canvas_hist.get_tk_widget().pack()
 
+    #     # Fecha a janela de plotagem ao fechá-la na interface
+    #     toolbar = NavigationToolbar2Tk(canvas_hist, self.histWindow)
+    #     toolbar.update()
+    #     canvas_hist.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
     # M A T R I Z
     def viewGLCM(self):
