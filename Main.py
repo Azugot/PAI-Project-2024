@@ -355,7 +355,7 @@ class CropApp:
         self.startX = event.x
         self.startY = event.y
         self.deleteROIarea()
-        self.areaROI = self.imageArea.create_rectangle(self.startX, self.startY, self.startX, self.startY, outline="red", width=2)
+        self.areaROI = self.imageArea.create_rectangle(self.startX, self.startY, self.startX, self.startY, outline="green", width=2)
            
     def finishDrawROI(self, event):
         if (self.roiOn and self.areaROI):
@@ -368,7 +368,7 @@ class CropApp:
             self.startX = event.x
             self.startY = event.y
 
-            self.areaROI = self.imageArea.create_rectangle(self.startX-14, self.startY-14, self.startX+14, self.startY+14, outline="red", width=2)
+            self.areaROI = self.imageArea.create_rectangle(self.startX-14, self.startY-14, self.startX+14, self.startY+14, outline="green", width=2)
 
     #TODO: Fix this method for generic Images 
     def acquireROI(self):    
