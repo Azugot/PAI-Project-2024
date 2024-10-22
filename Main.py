@@ -14,6 +14,9 @@ from math import log
 
 class CropApp:
     def __init__(self, root, savePath, uiWidth=434, uiHeight=636):
+        #Variables for the ROI Window(Yes a separate window, please do not touch thank you xoxo)
+        self.ROIimage = None
+        
         # Variables to keep track of the different parameters that change during the use of the app
         self.numPatient = 0
         self.imgPatient = 0
@@ -79,6 +82,8 @@ class CropApp:
         self.viewHistogramsButton = Button(self.app, width=20, text='VIEW HISTOGRAMS', font='none 12', command=self.viewHistograms)
         self.viewGLCMButton = Button(self.app, width=20, text='VIEW GLCM & TEXTURE', font='none 12', command=self.viewGLCM)
         self.viewNTDescriptorButton = Button(self.app, width=20, text='VIEW NT DESCRIPTOR', font='none 12', command=self.viewNTDescriptorMatricula)
+        self.SHOWROIWIP = Button(self.app, width=20, text='ROI WINDOW', font='none 12', command=self.showROIWindow)
+        
         
         # Zoom Reset Button (initially hidden)
         self.resetZoomButton = Button(self.app, width=20, text='RESET ZOOM', font='none 12', command=self.resetZoom)
@@ -90,6 +95,7 @@ class CropApp:
         self.openImage.grid(row=1, column=0, sticky="n")
         self.openMat.grid(row=2, column=0, sticky="n")
         self.imageArea.grid(row=0, column=0, columnspan=3)
+        self.SHOWROIWIP.grid(row=3, column=0, columnspan=3)
         
         self.imageArea.bind("<ButtonPress-2>", self.startMove)
         self.imageArea.bind("<B2-Motion>", self.moveImage)
@@ -391,10 +397,8 @@ class CropApp:
 
             cutROI.show()
             
-            
     # S C R O L L
     def createScrollableCanvas(self, parentWindow):
-        # Function to create a scrollable canvas
         canvas = Canvas(parentWindow)
         scrollbar = Scrollbar(parentWindow, orient="vertical", command=canvas.yview)
         scrollable_frame = Frame(canvas)
@@ -715,6 +719,46 @@ class CropApp:
                 else:
                     featuresLabel = Label(rightFrame, text=featuresText, font='none 12', justify='left', anchor='w')
                     featuresLabel.pack(pady=5)        
+
+    #ROI IMAGE WINDOW (This is here because the code is already unorganized) Fuck Monoliths
+    def showROIWindow(self):
+        print("I AM STEVE")
+        
+        ROIWindowBase = Toplevel(self.app)
+        ROIWindowBase.title("ROIs")
+        ROIWindowBase.geometry("1200x800")
+        
+        sidebarWithScroll = self.createScrollableCanvas(ROIWindowBase)
+        
+        ROISideBar = Frame(sidebarWithScroll)
+        ROISideBar.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=10)
+        
+        ROIDisplay =Frame(ROIWindowBase)
+        ROIDisplay.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        ROIArea = Canvas(ROIDisplay, width=200, height=200, bg='#C8C8C8')
+        ROIArea.pack()
+        
+        roiFiles = self.listSavedROIFiles()
+        
+        # abre a nova janela
+        for roiFile in roiFiles:
+            roiPath = os.path.join(self.savePath, roiFile)
+            print(roiFile)
+            imgButton = Button(ROISideBar, text=roiFile, font='none 12', command=lambda roiPath=roiPath: self.displayROIinROIWindowCanvas(roiPath, ROIArea))
+            imgButton.pack(pady=5)
+            pass
+    
+    def displayROIinROIWindowCanvas(self, roiPath, ROIArea):
+        ROIArea.delete("all")
+        print("You are now viewing: " + roiPath)
+        #histCanvas.delete("all") might be useful later
+        self.ROIimage = Image.open(roiPath)
+        ROIForMaskMultiplication = self.ROIimage.resize((200, 200), Image.LANCZOS)
+        self.ROIimage = ImageTk.PhotoImage(ROIForMaskMultiplication)
+        ROIArea.create_image(0, 0, image=self.ROIimage, anchor='nw')
+        pass
+
 
 if __name__ == "__main__":
     root = Tk()
