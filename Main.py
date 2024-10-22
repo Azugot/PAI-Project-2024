@@ -10,6 +10,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from skimage.feature import graycomatrix, graycoprops as greycoprops
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import io
+from math import log
 
 class CropApp:
     def __init__(self, root, savePath, uiWidth=434, uiHeight=636):
@@ -636,7 +637,18 @@ class CropApp:
 
             # Alinhamentos
             featuresLabel = Label(frame, text=featuresText, font='none 12', justify='left')
-            featuresLabel.pack(side='right', padx=10)     
+            featuresLabel.pack(side='right', padx=10)
+
+
+    def calculo_entropia_glcm(self, glcm):
+        glcm_normalized = glcm / np.sum(glcm)
+        entropy = 0
+        for i in range(glcm_normalized.shape[0]):
+            for j in range(glcm_normalized.shape[1]):
+                if glcm_normalized[i, j] > 0:  # Evitar log(0)
+                    entropy -= glcm_normalized[i, j] * log(glcm_normalized[i, j])
+        return entropy
+        
 
     def viewGLCMRadial(self):
         # Cria nova aba
@@ -684,6 +696,7 @@ class CropApp:
                 homogeneity = greycoprops(glcm, 'homogeneity')[0, 0]
                 energy = greycoprops(glcm, 'energy')[0, 0]
                 correlation = greycoprops(glcm, 'correlation')[0, 0]
+                entropy = self.calculo_entropia_glcm(glcm[:, :, 0, 0])
 
                 featuresText = (
                     f"Distance {distance} px:\n"
@@ -692,6 +705,7 @@ class CropApp:
                     f"  Homogeneity: {homogeneity:.4f}\n"
                     f"  Energy: {energy:.4f}\n"
                     f"  Correlation: {correlation:.4f}\n"
+                    f"  Entropy: {entropy:.4f}\n"
                 )
 
                 # Adiciona as propriedades em duas colunas
