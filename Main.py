@@ -61,6 +61,8 @@ class CropApp:
         self.viewHistogramsButton = Button(self.app, width=20, text='VIEW HISTOGRAMS', font='none 12', command=self.viewHistograms)
         self.viewGLCMButton = Button(self.app, width=20, text='VIEW GLCM & TEXTURE', font='none 12', command=self.viewGLCM)
         self.viewNTDescriptorButton = Button(self.app, width=20, text='VIEW NT DESCRIPTOR', font='none 12', command=self.viewNTDescriptorMatricula)
+        self.SHOWROIWIP = Button(self.app, width=20, text='ROW WINDOW', font='none 12', command=self.showROIWindow)
+        
         
         # Zoom Reset Button (initially hidden)
         self.resetZoomButton = Button(self.app, width=20, text='RESET ZOOM', font='none 12', command=self.resetZoom)
@@ -72,6 +74,7 @@ class CropApp:
         self.openImage.grid(row=1, column=0, sticky="n")
         self.openMat.grid(row=2, column=0, sticky="n")
         self.imageArea.grid(row=0, column=0, columnspan=3)
+        self.SHOWROIWIP.grid(row=3, column=0, columnspan=3)
         
         self.imageArea.bind("<ButtonPress-2>", self.startMove)
         self.imageArea.bind("<B2-Motion>", self.moveImage)
@@ -319,11 +322,25 @@ class CropApp:
             cutROI = self.acquireROI()
 
             cutROI.show()
+    
+    def showROIWindow(self):
+        print("I AM STEVE")
+        
+        histWindow = Toplevel(self.app)
+        histWindow.title("Histograms of Saved ROIs")
+        histWindow.geometry("1200x800")
+        
+        roiFiles = self.listSavedROIFiles()
+        
+        # abre a nova janela
+        for roiFile in roiFiles:
+            roiPath = os.path.join(self.savePath, roiFile)
+            roiImage = cv2.imread(roiPath)
             
+            pass
             
     # S C R O L L
     def createScrollableCanvas(self, parentWindow):
-        # Function to create a scrollable canvas
         canvas = Canvas(parentWindow)
         scrollbar = Scrollbar(parentWindow, orient="vertical", command=canvas.yview)
         scrollable_frame = Frame(canvas)
