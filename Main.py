@@ -175,14 +175,28 @@ class CropApp:
             self.showHistogram(matImage)
 
     def showHistogram(self, matImage):
-        hist = cv2.calcHist([matImage], [0], None, [256], [0, 256]).ravel() 
+        if len(matImage.shape) == 3: 
+            matImage = cv2.cvtColor(matImage, cv2.COLOR_BGR2GRAY)
+
+        height, width = matImage.shape
+        total_pixels = height * width
+
+        hist = np.zeros(256, dtype=int)
+        for i in range(height):
+            for j in range(width):
+                intensity_value = matImage[i, j]
+                hist[intensity_value] += 1
+
+        assert sum(hist) == total_pixels, "A soma do histograma deve ser igual ao número total de pixels"
 
         fig, ax = plt.subplots(figsize=(4, 2.5))
         ax.plot(hist, color='black')
-        ax.set_title(f"Grayscale Histogram - Paciente {self.numPatient}, Imagem {self.imgPatient}")
-        ax.set_xlim([0, 256])
+        ax.set_title(f"Histogram - Paciente {self.numPatient}, Imagem {self.imgPatient}")
+        ax.set_xlim([0, 255])
+        ax.set_xlabel('Pixel Intensity')
+        ax.set_ylabel('Number of Pixels')
 
-        max_value = np.percentile(hist, 95)  
+        max_value = np.percentile(hist, 95)
         ax.set_ylim([0, max_value * 1.1])
 
         buf = io.BytesIO()
@@ -199,6 +213,7 @@ class CropApp:
 
         buf.close()
         plt.close(fig)
+
 
     def navigateThroughMatFile(self, numPatient,imgPatient):
         if(self.matFileIsOpen and self.path):
@@ -456,83 +471,55 @@ class CropApp:
 
     # H I S T O G R A M A
     def viewHistograms(self):
-        # cria uma janela nova
+        # Cria uma nova janela
         histWindow = Toplevel(self.app)
         histWindow.title("Histograms of Saved ROIs")
         histWindow.geometry("1200x800")
 
-        # coloca um scroll
+        # Coloca um scroll
         scrollable_frame = self.createScrollableCanvas(histWindow)
 
         # Pega todos os arquivos salvos
         roiFiles = self.listSavedROIFiles()
 
-        # abre a nova janela
+        # Processa cada imagem
         for roiFile in roiFiles:
             roiPath = os.path.join(self.savePath, roiFile)
-            roiImage = cv2.imread(roiPath)
-            roiImageRGB = cv2.cvtColor(roiImage, cv2.COLOR_BGR2RGB)
+            roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE) 
 
-            # Para a imagem e o histograma ficar um do lado do outro
+            height, width = roiImage.shape
+            total_pixels = height * width
+
+            hist = np.zeros(256, dtype=int)
+            for i in range(height):
+                for j in range(width):
+                    intensity_value = roiImage[i, j]
+                    hist[intensity_value] += 1
+
+            assert sum(hist) == total_pixels, "A soma do histograma deve ser igual ao número total de pixels"
+
             frame = Frame(scrollable_frame)
             frame.pack(pady=10)
 
-            #Exibe uma roi
-            roiPIL = Image.fromarray(roiImageRGB)
+            roiPIL = Image.fromarray(roiImage) 
             roiPIL = roiPIL.resize((200, 200), Image.LANCZOS)
             roiPhoto = ImageTk.PhotoImage(roiPIL)
             imgLabel = Label(frame, image=roiPhoto)
-            imgLabel.image = roiPhoto 
+            imgLabel.image = roiPhoto
             imgLabel.pack(side='left', padx=10)
 
-            # Calcula o histograma
-            colors = ('r', 'g', 'b')
+            # Plotar o histograma
             fig, ax = plt.subplots(figsize=(5, 3))
             ax.set_title(f"Histogram for {roiFile}")
-            for i, color in enumerate(colors):
-                hist = cv2.calcHist([roiImageRGB], [i], None, [256], [0, 256])
-                ax.plot(hist, color=color)
-                ax.set_xlim([0, 256])
+            ax.plot(hist, color='black')
+            ax.set_xlim([0, 255])
+            ax.set_xlabel('Pixel Intensity')
+            ax.set_ylabel('Number of Pixels')
 
             canvas_hist = FigureCanvasTkAgg(fig, master=frame)
             canvas_hist.draw()
             canvas_hist.get_tk_widget().pack(side='right', padx=10)
 
-    # def showHistogram(self, matImage):
-    #     # Verifica se uma janela de histograma já está aberta e a fecha
-    #     if hasattr(self, 'histWindow') and self.histWindow.winfo_exists():
-    #         self.histWindow.destroy()
-
-    #     # Converte a imagem para tons de cinza, se não for
-    #     if len(matImage.shape) == 3 and matImage.shape[2] == 3:
-    #         matImage = cv2.cvtColor(matImage, cv2.COLOR_RGB2GRAY)
-
-    #     # Calcula o histograma da imagem
-    #     hist = cv2.calcHist([matImage], [0], None, [256], [0, 256])
-
-    #     # Cria uma nova janela para exibir o histograma e armazena a referência
-    #     self.histWindow = Toplevel(self.app)
-    #     self.histWindow.title(f"Image Histogram - Paciente {self.numPatient} - Imagem {self.imgPatient}")
-    #     self.histWindow.geometry("600x400")
-
-    #     # Plota o histograma usando matplotlib
-    #     fig, ax = plt.subplots(figsize=(6, 4))
-    #     ax.plot(hist, color='black')
-    #     ax.set_title(f"Grayscale Histogram - Paciente {self.numPatient} - Imagem {self.imgPatient}")
-    #     ax.set_xlim([0, 256])
-
-    #     # Limita a escala do eixo y (por exemplo, máximo de 2000)
-    #     ax.set_ylim([0, 2000])
-
-    #     # Exibe o gráfico em uma janela Tkinter
-    #     canvas_hist = FigureCanvasTkAgg(fig, master=self.histWindow)
-    #     canvas_hist.draw()
-    #     canvas_hist.get_tk_widget().pack()
-
-    #     # Fecha a janela de plotagem ao fechá-la na interface
-    #     toolbar = NavigationToolbar2Tk(canvas_hist, self.histWindow)
-    #     toolbar.update()
-    #     canvas_hist.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
     # M A T R I Z
     def viewGLCM(self):
