@@ -10,6 +10,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from skimage.feature import graycomatrix, graycoprops as greycoprops
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import io
+from math import log
 
 class CropApp:
     def __init__(self, root, savePath, uiWidth=434, uiHeight=636):
@@ -17,18 +18,18 @@ class CropApp:
         self.numPatient = 0
         self.imgPatient = 0
         self.zoomLevel = 1
-        self.moveX = 0
+        self.moveX = 0 
         self.moveY = 0
         self.savePath = savePath
         self.matFile = None
         self.areaROI = None
         self.pathROI = None
-
+        
         # Flags and Boolean variables to be used as flip-flops
         self.roiOn = False
         self.matFileIsOpen = False
         self.zoomEnabled = False
-
+        
         # UI Configs
         self.uiWidth = uiWidth
         self.uiHeight = uiHeight
@@ -40,49 +41,51 @@ class CropApp:
 
         self.app = root
         self.app.title('CROP')
-        self.app.geometry('1000x700')
+        self.app.geometry('700x700')
 
+        # Frame para a imagem
         self.imageFrame = tk.Frame(self.app, width=uiWidth, height=uiHeight, bg='#C8C8C8')
         self.imageFrame.grid(row=0, column=0, padx=10, pady=10)
 
+        # Frame para o histograma
         self.histFrame = tk.Frame(self.app, width=uiWidth, height=uiHeight, bg='#E8E8E8')
         self.histFrame.grid(row=0, column=1, padx=5, pady=5)
 
+        # Canvas para a imagem dentro do frame de imagem
         self.imageArea = Canvas(self.imageFrame, width=uiWidth, height=uiHeight, bg='#C8C8C8')
         self.imageArea.pack()
 
-        self.histCanvas = Canvas(self.histFrame, width=uiWidth, height=uiHeight, bg='#E8E8E8')
+        # Canvas para o histograma - ajuste o tamanho aqui
+        self.histCanvas = Canvas(self.histFrame, width=uiWidth, height=uiHeight, bg='#E8E8E8')  # Aumente width e height conforme necessário
         self.histCanvas.pack()
-
 
         # B U T T O N S
 
         # Button to open Image/Mat file
         self.openImage = Button(self.app, width=20, text='OPEN IMAGE', font='none 12', command=self.readImage)
         self.openMat = Button(self.app, width=20, text='OPEN MAT DATASET', font='none 12', command=self.readMatFiles)
-       
+        
         # Buttons to navigate through the images (initially hidden)
         self.nextPatient = Button(self.app, width=20, text='NEXT PATIENT', font='none 12', command=self.nextMatPatient)
         self.previousPatient = Button(self.app, width=20, text='PREVIOUS PATIENT', font='none 12', command=self.previousMatPatient)
         self.nextPatientImage = Button(self.app, width=20, text='NEXT PATIENT IMAGE', font='none 12', command=self.nextMatPatientImage)
         self.previousPatientImage = Button(self.app, width=20, text='PREVIOUS PATIENT IMAGE', font='none 12', command=self.previousMatPatientImage)
         self.viewGLCMRadialButton = Button(self.app, width=20, text='VIEW GLCM RADIAL', font='none 12', command=self.viewGLCMRadial)
-
+        
         # ROI Related Buttons (initially hidden)
         self.chooseRoi = Button(self.app, width=20, text='SELECT ROI', font='none 12', command=self.toggleROI)
         self.showArea = Button(self.app, width=20, text='SHOW ROI', font='none 12', command=self.showROI)
         self.saveSelectedROI = Button(self.app, width=20, text='SAVE ROI', font='none 12', command=self.saveROI)
         self.viewHistogramsButton = Button(self.app, width=20, text='VIEW HISTOGRAMS', font='none 12', command=self.viewHistograms)
         self.viewGLCMButton = Button(self.app, width=20, text='VIEW GLCM & TEXTURE', font='none 12', command=self.viewGLCM)
-        self.viewNTDescriptorButton = Button(self.app, width=20, text='VIEW NT DESCRIPTOR', font='none 12')
-        #self.viewNTDescriptorButton = Button(self.app, width=20, text='VIEW NT DESCRIPTOR', font='none 12', command=self.viewNTDescriptorMatricula)
+        self.viewNTDescriptorButton = Button(self.app, width=20, text='VIEW NT DESCRIPTOR', font='none 12', command=self.viewNTDescriptorMatricula)
         
         # Zoom Reset Button (initially hidden)
         self.resetZoomButton = Button(self.app, width=20, text='RESET ZOOM', font='none 12', command=self.resetZoom)
         self.zoomOutButton = Button(self.app, width=20, text='-', font='none 12', command=self.zoomOut)
         self.zoomInButton = Button(self.app, width=20, text='+', font='none 12', command=self.zoomIn)
         self.toggleZoomButton = Button(self.app, width=20, text='ENABLE ZOOM', font='none 12', command=self.toggleZoom)
-
+        
         # Grid Layout
         self.openImage.grid(row=1, column=0, sticky="n")
         self.openMat.grid(row=2, column=0, sticky="n")
@@ -137,7 +140,7 @@ class CropApp:
             self.mask[self.lasY+1][self.lasX+1] = 0 
             self.mask[self.lasY-1][self.lasX-1] = 0 
             self.mask[self.lasY+1][self.lasX-1] = 0 
-            self.mask[self.lasY-1][self.lasX+1] = 0 
+            self.mask[self.lasY-1][self.lasX+1] = 0
 
     def readMatFiles(self):
         self.path = filedialog.askopenfilename()
@@ -145,28 +148,56 @@ class CropApp:
         self.imgPatient = 0
         self.numPatient = 0
 
-        if self.path:
+        if (self.path):
+            # Flag to indicate that a .mat is open
             self.matFileIsOpen = True
+            
+            # Load matrix into data variable
             data = scipy.io.loadmat(self.path)
-            dataArray = data['data']
-            matImage = np.array(dataArray[0, self.numPatient]['images'][self.imgPatient])
-            pilImage = Image.fromarray(matImage).resize((self.uiWidth, self.uiHeight), Image.LANCZOS)
-            self.imageArea.delete("all")  
-            self.histCanvas.delete("all") 
+
+            dataArray = data['data'] 
+            input = dataArray[0, self.numPatient]
+            matImagens = input['images']
+            matImage = matImagens[self.imgPatient]
+
+            matImage = np.array(matImage)
+            pilImage = Image.fromarray(matImage)
+
+            pilImage = pilImage.resize((self.uiWidth, self.uiHeight), Image.LANCZOS)
+
+            # Update the image references
             self.image = ImageTk.PhotoImage(pilImage)
+            self.imageForMaskMultiplication = pilImage
+
+            # Display the image in the Canvas widget
             self.imageArea.create_image(0, 0, image=self.image, anchor='nw')
-            self.showHistogram(matImage)
+
             self.showAdditionalButtons()
+            self.showHistogram(matImage)
 
     def showHistogram(self, matImage):
-        hist = cv2.calcHist([matImage], [0], None, [256], [0, 256]).ravel() 
+        if len(matImage.shape) == 3: 
+            matImage = cv2.cvtColor(matImage, cv2.COLOR_BGR2GRAY)
+
+        height, width = matImage.shape
+        total_pixels = height * width
+
+        hist = np.zeros(256, dtype=int)
+        for i in range(height):
+            for j in range(width):
+                intensity_value = matImage[i, j]
+                hist[intensity_value] += 1
+
+        assert sum(hist) == total_pixels, "A soma do histograma deve ser igual ao número total de pixels"
 
         fig, ax = plt.subplots(figsize=(4, 2.5))
         ax.plot(hist, color='black')
-        ax.set_title(f"Grayscale Histogram - Paciente {self.numPatient}, Imagem {self.imgPatient}")
-        ax.set_xlim([0, 256])
+        ax.set_title(f"Histogram - Paciente {self.numPatient}, Imagem {self.imgPatient}")
+        ax.set_xlim([0, 255])
+        ax.set_xlabel('Pixel Intensity')
+        ax.set_ylabel('Number of Pixels')
 
-        max_value = np.percentile(hist, 95)  
+        max_value = np.percentile(hist, 95)
         ax.set_ylim([0, max_value * 1.1])
 
         buf = io.BytesIO()
@@ -183,6 +214,7 @@ class CropApp:
 
         buf.close()
         plt.close(fig)
+
 
     def navigateThroughMatFile(self, numPatient,imgPatient):
         if(self.matFileIsOpen and self.path):
@@ -440,65 +472,54 @@ class CropApp:
 
     # H I S T O G R A M A
     def viewHistograms(self):
-        # cria uma janela nova
+        # Cria uma nova janela
         histWindow = Toplevel(self.app)
         histWindow.title("Histograms of Saved ROIs")
         histWindow.geometry("1200x800")
 
-        # coloca um scroll
+        # Coloca um scroll
         scrollable_frame = self.createScrollableCanvas(histWindow)
 
         # Pega todos os arquivos salvos
         roiFiles = self.listSavedROIFiles()
 
-        # abre a nova janela
+        # Processa cada imagem
         for roiFile in roiFiles:
             roiPath = os.path.join(self.savePath, roiFile)
-            roiImage = cv2.imread(roiPath)
-            roiImageRGB = cv2.cvtColor(roiImage, cv2.COLOR_BGR2RGB)
+            roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE) 
 
-            # Para a imagem e o histograma ficar um do lado do outro
+            height, width = roiImage.shape
+            total_pixels = height * width
+
+            hist = np.zeros(256, dtype=int)
+            for i in range(height):
+                for j in range(width):
+                    intensity_value = roiImage[i, j]
+                    hist[intensity_value] += 1
+
+            assert sum(hist) == total_pixels, "A soma do histograma deve ser igual ao número total de pixels"
+
             frame = Frame(scrollable_frame)
             frame.pack(pady=10)
 
-            #Exibe uma roi
-            roiPIL = Image.fromarray(roiImageRGB)
+            roiPIL = Image.fromarray(roiImage) 
             roiPIL = roiPIL.resize((200, 200), Image.LANCZOS)
             roiPhoto = ImageTk.PhotoImage(roiPIL)
             imgLabel = Label(frame, image=roiPhoto)
-            imgLabel.image = roiPhoto 
+            imgLabel.image = roiPhoto
             imgLabel.pack(side='left', padx=10)
 
-            # Calcula o histograma
-            colors = ('r', 'g', 'b')
+            # Plotar o histograma
             fig, ax = plt.subplots(figsize=(5, 3))
             ax.set_title(f"Histogram for {roiFile}")
-            for i, color in enumerate(colors):
-                hist = cv2.calcHist([roiImageRGB], [i], None, [256], [0, 256])
-                ax.plot(hist, color=color)
-                ax.set_xlim([0, 256])
+            ax.plot(hist, color='black')
+            ax.set_xlim([0, 255])
+            ax.set_xlabel('Pixel Intensity')
+            ax.set_ylabel('Number of Pixels')
 
             canvas_hist = FigureCanvasTkAgg(fig, master=frame)
             canvas_hist.draw()
             canvas_hist.get_tk_widget().pack(side='right', padx=10)
-
-
-    # def showHistogram(self, matImage):
-    #     # Calcula o histograma da imagem em tons de cinza
-    #     hist = cv2.calcHist([matImage], [0], None, [256], [0, 256])
-
-    #     # Cria uma figura do histograma usando matplotlib
-    #     fig, ax = plt.subplots(figsize=(3, 2))
-    #     ax.plot(hist, color='black')
-    #     ax.set_title("Grayscale Histogram")
-    #     ax.set_xlim([0, 256])
-    #     ax.set_ylim([0, 2000])  # Ajuste conforme necessário
-
-    #     # Embed o gráfico matplotlib no Tkinter usando FigureCanvasTkAgg
-    #     canvas_hist = FigureCanvasTkAgg(fig, master=self.app)
-    #     canvas_hist.draw()
-    #     canvas_hist.get_tk_widget().grid(row=0, column=1)  # Exibe na coluna ao lado da imagem
-    #     plt.close(fig)  # Fecha a figura para liberar memória
 
 
     # M A T R I Z
@@ -557,7 +578,77 @@ class CropApp:
 
             # Alinhamentos
             featuresLabel = Label(frame, text=featuresText, font='none 12', justify='left')
-            featuresLabel.pack(side='right', padx=10)      
+            featuresLabel.pack(side='right', padx=10)   
+
+    def viewNTDescriptorMatricula(self):
+        # Calcula NT
+        matriculas = [766639, 772198, 1378247]
+        NT = sum(matriculas) % 4
+
+        # Cria uma janela nova
+        ntWindow = Toplevel(self.app)
+        ntWindow.title("NT Descriptor of Saved ROIs")
+        ntWindow.geometry("1200x800")
+
+        # Barra de rolagem
+        scrollable_frame = self.createScrollableCanvas(ntWindow)
+
+        # Pega todos os arquivos salvos
+        roiFiles = self.listSavedROIFiles()
+
+        # Calcula a matriz GLCM
+        for roiFile in roiFiles:
+            roiPath = os.path.join(self.savePath, roiFile)
+            roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
+
+            # Cria GLCM matrix
+            glcm = graycomatrix(roiImage, distances=[1], angles=[0], levels=256, symmetric=True, normed=True)
+
+            # Escolhe o descritor baseado em NT
+            if NT == 0:
+                descriptor_value = greycoprops(glcm, 'contrast')[0, 0]
+                descriptor_name = 'Contrast'
+            elif NT == 1:
+                descriptor_value = greycoprops(glcm, 'dissimilarity')[0, 0]
+                descriptor_name = 'Dissimilarity'
+            elif NT == 2:
+                descriptor_value = greycoprops(glcm, 'homogeneity')[0, 0]
+                descriptor_name = 'Homogeneity'
+            elif NT == 3:
+                descriptor_value = greycoprops(glcm, 'energy')[0, 0]
+                descriptor_name = 'Energy'
+
+            # Exibe as imagens e o resultado um do lado do outro
+            frame = Frame(scrollable_frame)
+            frame.pack(pady=10)
+
+            # Mostra a ROI
+            roiPIL = Image.fromarray(roiImage)
+            roiPIL = roiPIL.resize((200, 200), Image.LANCZOS)
+            roiPhoto = ImageTk.PhotoImage(roiPIL)
+            imgLabel = Label(frame, image=roiPhoto)
+            imgLabel.image = roiPhoto 
+            imgLabel.pack(side='left', padx=10)
+
+            # Mostra o descritor
+            featuresText = (
+                f"{descriptor_name}: {descriptor_value:.4f}"
+            )
+
+            # Alinhamentos
+            featuresLabel = Label(frame, text=featuresText, font='none 12', justify='left')
+            featuresLabel.pack(side='right', padx=10)
+
+
+    def calculo_entropia_glcm(self, glcm):
+        glcm_normalized = glcm / np.sum(glcm)
+        entropy = 0
+        for i in range(glcm_normalized.shape[0]):
+            for j in range(glcm_normalized.shape[1]):
+                if glcm_normalized[i, j] > 0:  # Evitar log(0)
+                    entropy -= glcm_normalized[i, j] * log(glcm_normalized[i, j])
+        return entropy
+        
 
     def viewGLCMRadial(self):
         # Cria nova aba
@@ -605,6 +696,7 @@ class CropApp:
                 homogeneity = greycoprops(glcm, 'homogeneity')[0, 0]
                 energy = greycoprops(glcm, 'energy')[0, 0]
                 correlation = greycoprops(glcm, 'correlation')[0, 0]
+                entropy = self.calculo_entropia_glcm(glcm[:, :, 0, 0])
 
                 featuresText = (
                     f"Distance {distance} px:\n"
@@ -613,6 +705,7 @@ class CropApp:
                     f"  Homogeneity: {homogeneity:.4f}\n"
                     f"  Energy: {energy:.4f}\n"
                     f"  Correlation: {correlation:.4f}\n"
+                    f"  Entropy: {entropy:.4f}\n"
                 )
 
                 # Adiciona as propriedades em duas colunas
