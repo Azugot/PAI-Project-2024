@@ -62,6 +62,11 @@ class CropApp:
         self.histCanvas = Canvas(self.histFrame, width=uiWidth, height=uiHeight, bg='#E8E8E8')  # Aumente width e height conforme necessário
         self.histCanvas.pack()
 
+        self.roi1 = None
+        self.roi2 = None 
+        self.areaROI1 = None
+        self.areaROI2 = None
+
         # B U T T O N S
 
         # Button to open Image/Mat file
@@ -77,6 +82,8 @@ class CropApp:
         
         # ROI Related Buttons (initially hidden)
         self.chooseRoi = Button(self.app, width=20, text='SELECT ROI', font='none 12', command=self.toggleROI)
+        self.chooseRoi.grid(row=4, column=0, sticky="n", padx=10, pady=10)
+
         self.showArea = Button(self.app, width=20, text='SHOW ROI', font='none 12', command=self.showROI)
         self.saveSelectedROI = Button(self.app, width=20, text='SAVE ROI', font='none 12', command=self.saveROI)
         self.viewHistogramsButton = Button(self.app, width=20, text='VIEW HISTOGRAMS', font='none 12', command=self.viewHistograms)
@@ -315,51 +322,128 @@ class CropApp:
         return [f for f in os.listdir(self.savePath) if os.path.isfile(os.path.join(self.savePath, f))]    
 
     def saveROI(self):
-        cutROI = self.acquireROI()
-        
-        # Ensure the save path directory exists
-        os.makedirs(self.savePath, exist_ok=True)
+        if (self.roi1 and self.roi2):  #verifica se as duas rois foram selecionadas pq so pode salvar de pois das duas marcadas
+            liverROI = self.acquireROI(self.roi1)  #Pega fígado
+            kidneyROI = self.acquireROI(self.roi2)  #Pega rim
 
-        # Save the image with a different alias
-        if (self.numPatient < 10):
-            file_name = os.path.join(self.savePath, f"ROI_0{self.numPatient}_{self.imgPatient}.png")
+            # Converte as rois para arrays NumPy em escala de cinza
+            liverArray = np.array(liverROI.convert("L"))  #faz a conversao dos tons de cinza
+            kidneyArray = np.array(kidneyROI.convert("L"))
+
+            #faz a media dos tons de cinza
+            liverMean = np.mean(liverArray)
+            kidneyMean = np.mean(kidneyArray)
+            
+            HI = liverMean / kidneyMean
+
+            # muda os tons de cinza da roi do figado (primeira roi marcada)com base no HI
+            liverArrayAdjusted = np.clip(np.round(liverArray * HI), 0, 255).astype(np.uint8)
+
+            # muda de volta para imagem PIL
+            liverROIAdjusted = Image.fromarray(liverArrayAdjusted)
+
+            #salva a roi ajustada do figado
+            os.makedirs(self.savePath, exist_ok=True)
+            file_name = os.path.join(self.savePath, f"ROI_{self.numPatient:02}_{self.imgPatient}.png")
+            liverROIAdjusted.save(file_name, "PNG")
+            print(f"ROI do fígado salva em: {file_name}")
+            
+            # Limpa as rois apos salvar
+            self.roi1 = None
+            self.roi2 = None
+            self.areaROI1 = None
+            self.areaROI2 = None
         else:
-            file_name = os.path.join(self.savePath, f"ROI_{self.numPatient}_{self.imgPatient}.png")
-        cutROI.save(file_name, "PNG")
+            print("Marque as ROIs fígado e rim antes de salvar")
 
     def deleteROIarea(self):
-        if (self.areaROI):
+        if(self.areaROI):
             self.imageArea.delete(self.areaROI)
             self.areaROI = None
 
     def toggleROI(self):
-        if (self.roiOn):
-            self.roiOn = False
-            self.chooseRoi.config(text="SELECT ROI")
-            self.imageArea.unbind("<Button-1>")
-            self.imageArea.unbind("<B1-Motion>")
-            self.deleteROIarea()
-        else:
-            self.roiOn = True
-            self.chooseRoi.config(text="END SELECT ROI")
-            #self.imageArea.bind("<Button-1>", self.drawROIFixed)
+        # olha se a primeira roi que é o figado foi selecionada e ai deixa marca a segunda roi
+        if(self.roi1 is not None and self.roi2 is None):
+            self.chooseRoi.config(text="SELECT KIDNEY ROI (ROI 2)")
+            self.imageArea.bind("<Button-1>", self.startDrawROI2)
+            self.imageArea.bind("<B1-Motion>", self.finishDrawROI2)
+            print("Marque a segunda ROI (rim).")
+        elif(self.roi1 is None):
+            #olha se nenhuma roi foi selecionada e deixa marcar a primeira roi
+            self.chooseRoi.config(text="SELECT LIVER ROI (ROI 1)")
             self.imageArea.bind("<Button-1>", self.startDrawROI)
             self.imageArea.bind("<B1-Motion>", self.finishDrawROI)
-            #ZOOM STUFF
-            self.toggleZoomButton.config(text="ENABLE ZOOM")
-            self.zoomEnabled = False
-            self.resetZoom()
-            self.imageZoomUpdate()
-           
+            print("Marque a primeira ROI (fígado).")
+        else:
+            print("Não marcou nenhuma ROI")
+            self.chooseRoi.config(text="ROIs SELECTED")
+            self.imageArea.unbind("<Button-1>")
+            self.imageArea.unbind("<B1-Motion>")
+
+
     def startDrawROI(self, event):
+        # Pega o clique inicial
         self.startX = event.x
         self.startY = event.y
-        self.deleteROIarea()
-        self.areaROI = self.imageArea.create_rectangle(self.startX, self.startY, self.startX, self.startY, outline="green", width=2)
-           
+        
+        #remove qualquer roi anterior desenhada
+        if self.areaROI1:
+            self.imageArea.delete(self.areaROI1)
+        
+        #faz o quadrado da roi com tamanho fixo de 28x28 pixels
+        self.areaROI1 = self.imageArea.create_rectangle(self.startX, self.startY, self.startX + 28, self.startY + 28, outline="green", width=2)
+        
+        #salva as coordenadas da primeira roi
+        self.roi1 = (self.startX, self.startY, self.startX + 28, self.startY + 28)
+        print(f"Primeira ROI (fígado) selecionada: {self.roi1}")
+        
+        #muda para a seleção da segunda roi
+        self.chooseRoi.config(text="SELECT KIDNEY ROI (ROI 2)")
+        self.imageArea.bind("<Button-1>", self.startDrawROI2)
+
+
     def finishDrawROI(self, event):
-        if (self.roiOn and self.areaROI):
-            self.imageArea.coords(self.areaROI, self.startX, self.startY, event.x, event.y)
+        #salva as coordenadas da primeira roi
+        self.roi1 = (self.startX, self.startY, self.startX + 28, self.startY + 28)
+        print(f"Primeira ROI (fígado) selecionada: {self.roi1}")
+        
+        #muda para a seleção da segunda ROI (rim)
+        self.chooseRoi.config(text="SELECT KIDNEY ROI (ROI 2)")
+        self.imageArea.bind("<Button-1>", self.startDrawROI2)
+        self.imageArea.bind("<B1-Motion>", self.finishDrawROI2)
+        print("Selecione a segunda ROI (rim).")
+
+    def startDrawROI2(self, event):
+        # Pega o clique inicial
+        self.startX = event.x
+        self.startY = event.y
+        
+        #remove qualquer roi anterior desenhada
+        if self.areaROI2:
+            self.imageArea.delete(self.areaROI2)
+        
+        #faz o quadrado da roi com tamanho fixo de 28x28 pixels
+        self.areaROI2 = self.imageArea.create_rectangle(self.startX, self.startY, self.startX + 28, self.startY + 28, outline="green", width=2)
+        
+        #salva as coordenadas da primeira roi        
+        self.roi2 = (self.startX, self.startY, self.startX + 28, self.startY + 28)
+        print(f"Segunda ROI (rim) selecionada: {self.roi2}")
+        
+        #muda o texto do botao
+        self.chooseRoi.config(text="BOTH ROIs SELECTED")
+        self.imageArea.unbind("<Button-1>")  #desativa o clique após selecionar ambas as rois
+
+
+    def finishDrawROI2(self, event):
+        #salva as coordenadas da segunda roi
+        self.roi2 = (self.startX, self.startY, self.startX + 28, self.startY + 28)
+        print(f"Segunda ROI (rim) selecionada: {self.roi2}")
+        
+        #desativa tudo porque ja a dois rois ja foram slecionadas
+        self.chooseRoi.config(text="BOTH ROIs SELECTED")
+        self.imageArea.unbind("<Button-1>")
+        self.imageArea.unbind("<B1-Motion>")
+        print("Ambas as ROIs foram selecionadas.")
 
     def drawROIFixed(self, event):
         if (self.roiOn):
@@ -371,31 +455,38 @@ class CropApp:
             self.areaROI = self.imageArea.create_rectangle(self.startX-14, self.startY-14, self.startX+14, self.startY+14, outline="green", width=2)
 
     #TODO: Fix this method for generic Images 
-    def acquireROI(self):    
-        self.imageArea.itemconfig(self.areaROI, outline = "green")
+    def acquireROI(self, roi_coords):
+        x1, y1, x2, y2 = roi_coords
+        x1, y1 = map(int, [max(0, x1), max(0, y1)])
         
-        x1, y1, x2, y2 = self.imageArea.coords(self.areaROI)
-        x1, y1, x2, y2 = map(int, [max(0, x1), max(0, y1), min(self.uiWidth, x2), min(self.uiHeight, y2)])
+        #tamanho das duas rois
+        x2 = x1 + 28
+        y2 = y1 + 28
         
-        #Need this to make it work for "Normal" images or the multiplication gets broken and the ROI gets too
-        #Gets the fucking scale right
         originalX, originalY = self.imageForMaskMultiplication.size
         scaleX = originalX / self.uiWidth
         scaleY = originalY / self.uiHeight
         
-        # Convert coordinates to make it right
+        # Corrige as coordenadas com base na escala da imagem original
         correctedX1 = int(x1 * scaleX)
         correctedY1 = int(y1 * scaleY)
         correctedX2 = int(x2 * scaleX)
         correctedY2 = int(y2 * scaleY)
-        return (self.imageForMaskMultiplication.crop((correctedX1, correctedY1, correctedX2, correctedY2)))
-    
-    def showROI(self): 
-        if self.areaROI:
-            
-            cutROI = self.acquireROI()
+        
+        return self.imageForMaskMultiplication.crop((correctedX1, correctedY1, correctedX2, correctedY2))
 
-            cutROI.show()
+    
+    def showROI(self):  
+        if(self.areaROI1 and self.areaROI2):
+            liverROI = self.acquireROI(self.roi1)  #salva as coordenadas da roi 1
+            kidneyROI = self.acquireROI(self.roi2)  #salva as coordenadas da roi 2
+
+            #mostra as rois
+            liverROI.show()
+            kidneyROI.show()
+        else:
+            print("Tem que marca as duaaas")
+
             
     # S C R O L L
     def createScrollableCanvas(self, parentWindow):
