@@ -11,6 +11,8 @@ from skimage.feature import graycomatrix, graycoprops as greycoprops
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import io
 from math import log
+import pandas as pd
+import csv
 
 class CropApp:
     def __init__(self, root, savePath, uiWidth=434, uiHeight=636):
@@ -322,39 +324,71 @@ class CropApp:
         return [f for f in os.listdir(self.savePath) if os.path.isfile(os.path.join(self.savePath, f))]    
 
     def saveROI(self):
-        if (self.roi1 and self.roi2):  #verifica se as duas rois foram selecionadas pq so pode salvar de pois das duas marcadas
-            liverROI = self.acquireROI(self.roi1)  #Pega fígado
-            kidneyROI = self.acquireROI(self.roi2)  #Pega rim
+        if (self.roi1 and self.roi2):  # verifica se as duas rois foram selecionadas pq so pode salvar depois das duas marcadas
+            liverROI = self.acquireROI(self.roi1)  # Pega fígado
+            kidneyROI = self.acquireROI(self.roi2)  # Pega rim
 
             # Converte as rois para arrays NumPy em escala de cinza
-            liverArray = np.array(liverROI.convert("L"))  #faz a conversao dos tons de cinza
+            liverArray = np.array(liverROI.convert("L"))  # faz a conversão dos tons de cinza
             kidneyArray = np.array(kidneyROI.convert("L"))
 
-            #faz a media dos tons de cinza
+            # faz a média dos tons de cinza
             liverMean = np.mean(liverArray)
             kidneyMean = np.mean(kidneyArray)
-            
+
             HI = liverMean / kidneyMean
 
-            # muda os tons de cinza da roi do figado (primeira roi marcada)com base no HI
+            # ajusta os tons de cinza da ROI do fígado com base no HI
             liverArrayAdjusted = np.clip(np.round(liverArray * HI), 0, 255).astype(np.uint8)
 
-            # muda de volta para imagem PIL
+            # Converte de volta para imagem PIL
             liverROIAdjusted = Image.fromarray(liverArrayAdjusted)
 
-            #salva a roi ajustada do figado
+            # Salva a ROI ajustada do fígado
             os.makedirs(self.savePath, exist_ok=True)
             file_name = os.path.join(self.savePath, f"ROI_{self.numPatient:02}_{self.imgPatient}.png")
             liverROIAdjusted.save(file_name, "PNG")
             print(f"ROI do fígado salva em: {file_name}")
-            
-            # Limpa as rois apos salvar
+
+            # Definindo a classe dos pacientes (0-16 saudáveis, resto com esteatose)
+            patient_class = "Healthy" if self.numPatient <= 16 else "Steatosis"
+
+            # Calcula o índice correto baseado no paciente e na imagem
+            row_index = self.numPatient * 10 + self.imgPatient  # Cada paciente tem até 10 imagens
+
+            # Caminho para o CSV
+            csv_file = os.path.join(self.savePath, 'rois_data.csv')
+
+            # Inicializa uma lista com 550 linhas em branco se o arquivo não existir
+            if not os.path.exists(csv_file):
+                with open(csv_file, mode='w', newline='') as file:
+                    writer = csv.writer(file)
+                    writer.writerow(['Arquivo', 'Classificação', 'ROI Fígado ', 'ROI Rim', 'HI'])
+                    # Preenche 550 linhas com dados vazios
+                    for _ in range(550):
+                        writer.writerow(["", "", "", "", ""])
+
+            # Lê todas as linhas do CSV
+            with open(csv_file, mode='r') as file:
+                rows = list(csv.reader(file))
+
+            # Atualiza a linha específica com as informações da ROI
+            rows[row_index + 1] = [f"ROI_{self.numPatient:02}_{self.imgPatient}.png", patient_class, self.roi1[:2], self.roi2[:2], round(HI, 4)]
+
+            # Escreve de volta no CSV as linhas atualizadas
+            with open(csv_file, mode='w', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerows(rows)
+
+            print(f"Informações da ROI salvas no arquivo CSV na linha {row_index + 1}.")
+
+            # Limpa as ROIs após salvar
             self.roi1 = None
             self.roi2 = None
             self.areaROI1 = None
             self.areaROI2 = None
         else:
-            print("Marque as ROIs fígado e rim antes de salvar")
+            print("Marque as ROIs fígado e rim antes de salvar.")
 
     def deleteROIarea(self):
         if(self.areaROI):
