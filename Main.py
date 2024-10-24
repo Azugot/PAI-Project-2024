@@ -106,9 +106,6 @@ class CropApp:
         self.openMat.grid(row=2, column=0, sticky="n")
         self.imageArea.grid(row=0, column=0, columnspan=3)
         self.SHOWROIWIP.grid(row=3, column=0, columnspan=3)
-        
-        self.imageArea.bind("<ButtonPress-2>", self.startMove)
-        self.imageArea.bind("<B2-Motion>", self.moveImage)
 
     #M OSTRAR BOTOES DPS DE ENVIAR A IMAGEM
     def showAdditionalButtons(self):
@@ -267,18 +264,29 @@ class CropApp:
 #Z O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O 0 O O O O O O O O O O O MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM 
     def toggleZoom(self):
         if (self.zoomEnabled):
+            #DO NOT TOUCH THIS PART ===============
             self.toggleZoomButton.config(text="ENABLE ZOOM")
             self.zoomEnabled = False
+            self.imageArea.unbind("<ButtonPress-2>")
+            self.imageArea.unbind("<B2-Motion>")
             self.resetZoom()
+            #DO NOT TOUCH THIS PART ===============
+            
         else:
+            #DO NOT TOUCH THIS PART ===============
             self.toggleZoomButton.config(text="DISABLE ZOOM")
             self.zoomEnabled = True
+            self.imageArea.bind("<ButtonPress-2>", self.startMove)
+            self.imageArea.bind("<B2-Motion>", self.moveImage)
+            
             #ROI STUFF
-            self.roiOn = False
-            self.chooseRoi.config(text="SELECT ROI")
-            self.imageArea.unbind("<Button-1>")
-            self.imageArea.unbind("<B1-Motion>")
-            self.deleteROIarea()
+            if(self.roiOn):
+                self.toggleROI()
+            #DO NOT TOUCH THIS PART ===============
+            
+        print(f"""TOGGLE STATUS:
+                ROI:{self.roiOn}
+                ZOOM:{self.zoomEnabled}""")
     
     def zoomIn(self):
         if (self.zoomEnabled):
@@ -365,24 +373,52 @@ class CropApp:
             self.areaROI = None
 
     def toggleROI(self):
-        # olha se a primeira roi que é o figado foi selecionada e ai deixa marca a segunda roi
-        if(self.roi1 is not None and self.roi2 is None):
-            self.chooseRoi.config(text="SELECT KIDNEY ROI (ROI 2)")
-            self.imageArea.bind("<Button-1>", self.startDrawROI2)
-            self.imageArea.bind("<B1-Motion>", self.finishDrawROI2)
-            print("Marque a segunda ROI (rim).")
-        elif(self.roi1 is None):
-            #olha se nenhuma roi foi selecionada e deixa marcar a primeira roi
-            self.chooseRoi.config(text="SELECT LIVER ROI (ROI 1)")
-            self.imageArea.bind("<Button-1>", self.startDrawROI)
-            self.imageArea.bind("<B1-Motion>", self.finishDrawROI)
-            print("Marque a primeira ROI (fígado).")
-        else:
-            print("Não marcou nenhuma ROI")
-            self.chooseRoi.config(text="ROIs SELECTED")
+        #DO NOT TOUCH THIS PART ===============
+        if (self.roiOn):
+            # Disable ROI selection
+            self.roiOn = False
+            self.chooseRoi.config(text="SELECT ROI")
             self.imageArea.unbind("<Button-1>")
             self.imageArea.unbind("<B1-Motion>")
+            self.deleteROIarea()
+            #DO NOT TOUCH THIS PART ===============
 
+        else:
+            #DO NOT TOUCH THIS PART ===============
+            # Enable ROI selection
+            self.roiOn = True
+            self.chooseRoi.config(text="END SELECT ROI")
+
+            # Disable zoom while selecting ROIs
+            if(self.zoomEnabled):
+                self.toggleZoom()
+            #DO NOT TOUCH THIS PART ===============
+            
+            
+            # Determine which ROI to select next
+            if self.roi1 is not None and self.roi2 is None:
+                # If liver ROI (ROI 1) is already selected, allow kidney ROI (ROI 2) selection
+                self.chooseRoi.config(text="SELECT KIDNEY ROI (ROI 2)")
+                self.imageArea.bind("<Button-1>", self.startDrawROI2)
+                self.imageArea.bind("<B1-Motion>", self.finishDrawROI2)
+                print("Marque a segunda ROI (rim).")
+            
+            elif self.roi1 is None:
+                # If no ROI is selected, start with liver ROI (ROI 1)
+                self.chooseRoi.config(text="SELECT LIVER ROI (ROI 1)")
+                self.imageArea.bind("<Button-1>", self.startDrawROI)
+                self.imageArea.bind("<B1-Motion>", self.finishDrawROI)
+                print("Marque a primeira ROI (fígado).")
+            
+            else:
+                # If both ROIs are already selected
+                print("ROIs já foram marcadas.")
+                self.chooseRoi.config(text="ROIs SELECTED")
+                self.imageArea.unbind("<Button-1>")
+                self.imageArea.unbind("<B1-Motion>")
+        print(f"""TOGGLE STATUS:
+                ROI:{self.roiOn}
+                ZOOM:{self.zoomEnabled}""")
 
     def startDrawROI(self, event):
         # Pega o clique inicial
@@ -403,7 +439,6 @@ class CropApp:
         #muda para a seleção da segunda roi
         self.chooseRoi.config(text="SELECT KIDNEY ROI (ROI 2)")
         self.imageArea.bind("<Button-1>", self.startDrawROI2)
-
 
     def finishDrawROI(self, event):
         #salva as coordenadas da primeira roi
@@ -435,7 +470,6 @@ class CropApp:
         #muda o texto do botao
         self.chooseRoi.config(text="BOTH ROIs SELECTED")
         self.imageArea.unbind("<Button-1>")  #desativa o clique após selecionar ambas as rois
-
 
     def finishDrawROI2(self, event):
         #salva as coordenadas da segunda roi
@@ -477,7 +511,6 @@ class CropApp:
         correctedY2 = int(y2 * scaleY)
         
         return self.imageForMaskMultiplication.crop((correctedX1, correctedY1, correctedX2, correctedY2))
-
     
     def showROI(self):  
         if(self.areaROI1 and self.areaROI2):
@@ -489,7 +522,6 @@ class CropApp:
             kidneyROI.show()
         else:
             print("Tem que marca as duaaas")
-
             
     # S C R O L L
     def createScrollableCanvas(self, parentWindow):
@@ -736,7 +768,6 @@ class CropApp:
             featuresLabel = Label(frame, text=featuresText, font='none 12', justify='left')
             featuresLabel.pack(side='right', padx=10)
 
-
     def calculo_entropia_glcm(self, glcm):
         glcm_normalized = glcm / np.sum(glcm)
         entropy = 0
@@ -810,8 +841,7 @@ class CropApp:
                     featuresLabel.pack(pady=5)
                 else:
                     featuresLabel = Label(rightFrame, text=featuresText, font='none 12', justify='left', anchor='w')
-                    featuresLabel.pack(pady=5)        
-                    
+                    featuresLabel.pack(pady=5)               
     
 #ROI IMAGE WINDOW (This is here because the code is already unorganized) Fuck Monoliths
     def showROIWindow(self):
@@ -857,18 +887,24 @@ class CropApp:
     def displayROIinROIWindowCanvas(self, roiPath, ROIArea, ROICanvasHeight, ROICanvasWidth):
         ROIArea.delete("all")
         print("You are now viewing: " + roiPath)
-        
-        #update wich is happening
+
+        # Update the currently displaying ROI path
         self.displayingROIPath = roiPath
-        
+
+        # Reset the zoom level and position before displaying the new image
         self.resetZoomROI()
-        
-        #histCanvas.delete("all") might be useful later
+
+        # Open the image and convert to PhotoImage
         self.ROIimage = Image.open(roiPath)
-        #ROIForMaskMultiplication = self.ROIimage.resize((ROICanvasWidth, ROICanvasHeight), Image.LANCZOS)
-        self.ROIimage = ImageTk.PhotoImage(self.ROIimage)
-        ROIArea.create_image(0, 0, image=self.ROIimage, anchor='nw')
-        pass
+        self.ROIimageTk = ImageTk.PhotoImage(self.ROIimage)
+
+        # Calculate the position to center the image
+        width, height = self.ROIimage.size
+        offsetX = (ROICanvasWidth - width) // 2
+        offsetY = (ROICanvasHeight - height) // 2
+
+        # Display the image at the calculated center position
+        ROIArea.create_image(offsetX, offsetY, image=self.ROIimageTk, anchor='nw')
 
 #Z O O OMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM 
     
@@ -897,9 +933,13 @@ class CropApp:
         # Update the displayed image
         self.ROIimageTk = ImageTk.PhotoImage(resizedImage)
 
-        # Clear the canvas and display the resized image
+        # Clear the canvas and calculate the position to center the image
         self.ROIArea.delete("all")
-        self.ROIArea.create_image(self.moveX, self.moveY, image=self.ROIimageTk, anchor='nw')
+        offsetX = (self.ROIArea.winfo_width() - newWidth) // 2
+        offsetY = (self.ROIArea.winfo_height() - newHeight) // 2
+
+        # Display the image at the calculated center position
+        self.ROIArea.create_image(offsetX, offsetY, image=self.ROIimageTk, anchor='nw')
 
     def resetZoomROI(self):
         self.zoomLevelROI = 1  # Reset zoom level to 1 (default scale)
