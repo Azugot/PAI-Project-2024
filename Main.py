@@ -16,6 +16,9 @@ class CropApp:
     def __init__(self, root, savePath, uiWidth=434, uiHeight=636):
         #Variables for the ROI Window(Yes a separate window, please do not touch thank you xoxo)
         self.ROIimage = None
+        self.zoomEnabledROI = True
+        self.zoomLevelROI = 1
+        self.displayingROIPath = None
         
         # Variables to keep track of the different parameters that change during the use of the app
         self.numPatient = 0
@@ -525,7 +528,6 @@ class CropApp:
             canvas_hist.draw()
             canvas_hist.get_tk_widget().pack(side='right', padx=10)
 
-
     # M A T R I Z
     def viewGLCM(self):
         # Cria uma janela nova
@@ -651,8 +653,7 @@ class CropApp:
             for j in range(glcm_normalized.shape[1]):
                 if glcm_normalized[i, j] > 0:  # Evitar log(0)
                     entropy -= glcm_normalized[i, j] * log(glcm_normalized[i, j])
-        return entropy
-        
+        return entropy 
 
     def viewGLCMRadial(self):
         # Cria nova aba
@@ -719,10 +720,14 @@ class CropApp:
                 else:
                     featuresLabel = Label(rightFrame, text=featuresText, font='none 12', justify='left', anchor='w')
                     featuresLabel.pack(pady=5)        
-
-    #ROI IMAGE WINDOW (This is here because the code is already unorganized) Fuck Monoliths
+                    
+    
+#ROI IMAGE WINDOW (This is here because the code is already unorganized) Fuck Monoliths
     def showROIWindow(self):
         print("I AM STEVE")
+        
+        ROICanvasWidth = 280
+        ROICanvasHeight = 280
         
         ROIWindowBase = Toplevel(self.app)
         ROIWindowBase.title("ROIs")
@@ -736,8 +741,17 @@ class CropApp:
         ROIDisplay =Frame(ROIWindowBase)
         ROIDisplay.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        ROIArea = Canvas(ROIDisplay, width=200, height=200, bg='#C8C8C8')
-        ROIArea.pack()
+        self.ROIArea = Canvas(ROIDisplay, width=ROICanvasWidth, height=ROICanvasHeight, bg='#C8C8C8')
+        self.ROIArea.pack()
+        
+        resetZoomButtonROI = Button(ROIDisplay, width=20, text='RESET ZOOM', font='none 12', command=self.resetZoomROI)
+        zoomOutButtonROI = Button(ROIDisplay, width=20, text='-', font='none 12', command=self.zoomOutROI)
+        zoomInButtonROI = Button(ROIDisplay, width=20, text='+', font='none 12', command=self.zoomInROI)
+        
+        resetZoomButtonROI.pack(side=tk.BOTTOM)
+        zoomInButtonROI.pack(side=tk.BOTTOM)
+        zoomOutButtonROI.pack(side=tk.BOTTOM)
+        
         
         roiFiles = self.listSavedROIFiles()
         
@@ -745,22 +759,63 @@ class CropApp:
         for roiFile in roiFiles:
             roiPath = os.path.join(self.savePath, roiFile)
             print(roiFile)
-            imgButton = Button(ROISideBar, text=roiFile, font='none 12', command=lambda roiPath=roiPath: self.displayROIinROIWindowCanvas(roiPath, ROIArea))
+            imgButton = Button(ROISideBar, text=roiFile, font='none 12', command=lambda roiPath=roiPath: self.displayROIinROIWindowCanvas(roiPath, self.ROIArea, ROICanvasHeight, ROICanvasWidth))
             imgButton.pack(pady=5)
             pass
     
-    def displayROIinROIWindowCanvas(self, roiPath, ROIArea):
+    def displayROIinROIWindowCanvas(self, roiPath, ROIArea, ROICanvasHeight, ROICanvasWidth):
         ROIArea.delete("all")
         print("You are now viewing: " + roiPath)
+        
+        #update wich is happening
+        self.displayingROIPath = roiPath
+        
+        self.resetZoomROI()
+        
         #histCanvas.delete("all") might be useful later
         self.ROIimage = Image.open(roiPath)
-        ROIForMaskMultiplication = self.ROIimage.resize((200, 200), Image.LANCZOS)
-        self.ROIimage = ImageTk.PhotoImage(ROIForMaskMultiplication)
+        #ROIForMaskMultiplication = self.ROIimage.resize((ROICanvasWidth, ROICanvasHeight), Image.LANCZOS)
+        self.ROIimage = ImageTk.PhotoImage(self.ROIimage)
         ROIArea.create_image(0, 0, image=self.ROIimage, anchor='nw')
         pass
 
+#Z O O OMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM 
+    
+    def zoomInROI(self):
+        if (self.zoomEnabledROI):
+            self.zoomLevelROI += 0.1
+            self.imageZoomUpdateROI()
 
-if __name__ == "__main__":
+    def zoomOutROI(self):
+        if (self.zoomEnabledROI):
+            self.zoomLevelROI = max(0.1, self.zoomLevelROI - 0.1)  # Ensure zoom level doesn't go negative or zero
+            self.imageZoomUpdateROI()
+
+    def imageZoomUpdateROI(self):
+        # Open the original image
+        self.ROIimage = Image.open(self.displayingROIPath)
+
+        # Calculate the new dimensions based on zoom level
+        width, height = self.ROIimage.size
+        newWidth = int(width * self.zoomLevelROI)
+        newHeight = int(height * self.zoomLevelROI)
+
+        # Resize the image
+        resizedImage = self.ROIimage.resize((newWidth, newHeight), Image.LANCZOS)
+
+        # Update the displayed image
+        self.ROIimageTk = ImageTk.PhotoImage(resizedImage)
+
+        # Clear the canvas and display the resized image
+        self.ROIArea.delete("all")
+        self.ROIArea.create_image(self.moveX, self.moveY, image=self.ROIimageTk, anchor='nw')
+
+    def resetZoomROI(self):
+        self.zoomLevelROI = 1  # Reset zoom level to 1 (default scale)
+        self.moveX, self.moveY = 0, 0  # Reset image position
+        self.imageZoomUpdateROI()
+
+if( __name__ == "__main__"):
     root = Tk()
     app = CropApp(root, "./ROISavedFiles", 636, 434)
     root.mainloop()
