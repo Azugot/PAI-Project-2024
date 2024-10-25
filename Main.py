@@ -18,9 +18,6 @@ class CropApp:
     def __init__(self, root, savePath, uiWidth=434, uiHeight=636):
         #Variables for the ROI Window(Yes a separate window, please do not touch thank you xoxo)
         self.ROIimage = None
-        self.zoomEnabledROI = True
-        self.zoomLevelROI = 1
-        self.displayingROIPath = None
         
         # Variables to keep track of the different parameters that change during the use of the app
         self.numPatient = 0
@@ -105,6 +102,9 @@ class CropApp:
         self.openMat.grid(row=2, column=0, sticky="n")
         self.imageArea.grid(row=0, column=0, columnspan=3)
         self.SHOWROIWIP.grid(row=3, column=0, columnspan=3)
+        
+        self.imageArea.bind("<ButtonPress-2>", self.startMove)
+        self.imageArea.bind("<B2-Motion>", self.moveImage)
 
     #M OSTRAR BOTOES DPS DE ENVIAR A IMAGEM
     def showAdditionalButtons(self):
@@ -262,29 +262,18 @@ class CropApp:
 #Z O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O 0 O O O O O O O O O O O MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM 
     def toggleZoom(self):
         if (self.zoomEnabled):
-            #DO NOT TOUCH THIS PART ===============
             self.toggleZoomButton.config(text="ENABLE ZOOM")
             self.zoomEnabled = False
-            self.imageArea.unbind("<ButtonPress-2>")
-            self.imageArea.unbind("<B2-Motion>")
             self.resetZoom()
-            #DO NOT TOUCH THIS PART ===============
-            
         else:
-            #DO NOT TOUCH THIS PART ===============
             self.toggleZoomButton.config(text="DISABLE ZOOM")
             self.zoomEnabled = True
-            self.imageArea.bind("<ButtonPress-2>", self.startMove)
-            self.imageArea.bind("<B2-Motion>", self.moveImage)
-            
             #ROI STUFF
-            if(self.roiOn):
-                self.toggleROI()
-            #DO NOT TOUCH THIS PART ===============
-            
-        print(f"""TOGGLE STATUS:
-                ROI:{self.roiOn}
-                ZOOM:{self.zoomEnabled}""")
+            self.roiOn = False
+            self.chooseRoi.config(text="SELECT ROI")
+            self.imageArea.unbind("<Button-1>")
+            self.imageArea.unbind("<B1-Motion>")
+            self.deleteROIarea()
     
     def zoomIn(self):
         if (self.zoomEnabled):
@@ -403,52 +392,24 @@ class CropApp:
             self.areaROI = None
 
     def toggleROI(self):
-        #DO NOT TOUCH THIS PART ===============
-        if (self.roiOn):
-            # Disable ROI selection
-            self.roiOn = False
-            self.chooseRoi.config(text="SELECT ROI")
+        # olha se a primeira roi que é o figado foi selecionada e ai deixa marca a segunda roi
+        if(self.roi1 is not None and self.roi2 is None):
+            self.chooseRoi.config(text="SELECT KIDNEY ROI (ROI 2)")
+            self.imageArea.bind("<Button-1>", self.startDrawROI2)
+            self.imageArea.bind("<B1-Motion>", self.finishDrawROI2)
+            print("Marque a segunda ROI (rim).")
+        elif(self.roi1 is None):
+            #olha se nenhuma roi foi selecionada e deixa marcar a primeira roi
+            self.chooseRoi.config(text="SELECT LIVER ROI (ROI 1)")
+            self.imageArea.bind("<Button-1>", self.startDrawROI)
+            self.imageArea.bind("<B1-Motion>", self.finishDrawROI)
+            print("Marque a primeira ROI (fígado).")
+        else:
+            print("Não marcou nenhuma ROI")
+            self.chooseRoi.config(text="ROIs SELECTED")
             self.imageArea.unbind("<Button-1>")
             self.imageArea.unbind("<B1-Motion>")
-            self.deleteROIarea()
-            #DO NOT TOUCH THIS PART ===============
 
-        else:
-            #DO NOT TOUCH THIS PART ===============
-            # Enable ROI selection
-            self.roiOn = True
-            self.chooseRoi.config(text="END SELECT ROI")
-
-            # Disable zoom while selecting ROIs
-            if(self.zoomEnabled):
-                self.toggleZoom()
-            #DO NOT TOUCH THIS PART ===============
-            
-            
-            # Determine which ROI to select next
-            if self.roi1 is not None and self.roi2 is None:
-                # If liver ROI (ROI 1) is already selected, allow kidney ROI (ROI 2) selection
-                self.chooseRoi.config(text="SELECT KIDNEY ROI (ROI 2)")
-                self.imageArea.bind("<Button-1>", self.startDrawROI2)
-                self.imageArea.bind("<B1-Motion>", self.finishDrawROI2)
-                print("Marque a segunda ROI (rim).")
-            
-            elif self.roi1 is None:
-                # If no ROI is selected, start with liver ROI (ROI 1)
-                self.chooseRoi.config(text="SELECT LIVER ROI (ROI 1)")
-                self.imageArea.bind("<Button-1>", self.startDrawROI)
-                self.imageArea.bind("<B1-Motion>", self.finishDrawROI)
-                print("Marque a primeira ROI (fígado).")
-            
-            else:
-                # If both ROIs are already selected
-                print("ROIs já foram marcadas.")
-                self.chooseRoi.config(text="ROIs SELECTED")
-                self.imageArea.unbind("<Button-1>")
-                self.imageArea.unbind("<B1-Motion>")
-        print(f"""TOGGLE STATUS:
-                ROI:{self.roiOn}
-                ZOOM:{self.zoomEnabled}""")
 
     def startDrawROI(self, event):
         # Pega o clique inicial
@@ -469,6 +430,7 @@ class CropApp:
         #muda para a seleção da segunda roi
         self.chooseRoi.config(text="SELECT KIDNEY ROI (ROI 2)")
         self.imageArea.bind("<Button-1>", self.startDrawROI2)
+
 
     def finishDrawROI(self, event):
         #salva as coordenadas da primeira roi
@@ -500,6 +462,7 @@ class CropApp:
         #muda o texto do botao
         self.chooseRoi.config(text="BOTH ROIs SELECTED")
         self.imageArea.unbind("<Button-1>")  #desativa o clique após selecionar ambas as rois
+
 
     def finishDrawROI2(self, event):
         #salva as coordenadas da segunda roi
@@ -541,6 +504,7 @@ class CropApp:
         correctedY2 = int(y2 * scaleY)
         
         return self.imageForMaskMultiplication.crop((correctedX1, correctedY1, correctedX2, correctedY2))
+
     
     def showROI(self):  
         if(self.areaROI1 and self.areaROI2):
@@ -552,6 +516,7 @@ class CropApp:
             kidneyROI.show()
         else:
             print("Tem que marca as duaaas")
+
             
     # S C R O L L
     def createScrollableCanvas(self, parentWindow):
@@ -709,8 +674,9 @@ class CropApp:
         #Pega todos os arquivos
         roiFiles = self.listSavedROIFiles()
 
-        # Calcula a distancia entre 1, 2, 4, 8
         distances = [1, 2, 4, 8]
+        angles = [0, np.pi/4, np.pi/2, 3*np.pi/4]
+        
         for roiFile in roiFiles:
             roiPath = os.path.join(self.savePath, roiFile)
             roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
@@ -737,12 +703,16 @@ class CropApp:
 
             # Calcula GLCMs para diferentes texturas e distancias e coloca em duas colunas
             for i, distance in enumerate(distances):
-                glcm = graycomatrix(roiImage, distances=[distance], angles=[0], levels=256, symmetric=True, normed=True)
-                contrast = greycoprops(glcm, 'contrast')[0, 0]
-                dissimilarity = greycoprops(glcm, 'dissimilarity')[0, 0]
-                homogeneity = greycoprops(glcm, 'homogeneity')[0, 0]
-                energy = greycoprops(glcm, 'energy')[0, 0]
-                correlation = greycoprops(glcm, 'correlation')[0, 0]
+                glcm = graycomatrix(roiImage, distances=[distance], angles=angles, symmetric=True, normed=True)
+
+                # Calcula propriedades para todos os ângulos e tira a média
+                contrast = greycoprops(glcm, 'contrast').mean()
+                dissimilarity = greycoprops(glcm, 'dissimilarity').mean()
+                homogeneity = greycoprops(glcm, 'homogeneity').mean()
+                energy = greycoprops(glcm, 'energy').mean()
+                correlation = greycoprops(glcm, 'correlation').mean()
+
+                # Calcula a entropia para o primeiro ângulo como exemplo, mas pode ser estendido
                 entropy = self.calculo_entropia_glcm(glcm[:, :, 0, 0])
 
                 featuresText = (
@@ -944,12 +914,8 @@ class CropApp:
         # Display the image at the calculated center position
         self.ROIArea.create_image(offsetX, offsetY, image=self.ROIimageTk, anchor='nw')
 
-    def resetZoomROI(self):
-        self.zoomLevelROI = 1  # Reset zoom level to 1 (default scale)
-        self.moveX, self.moveY = 0, 0  # Reset image position
-        self.imageZoomUpdateROI()
 
-if( __name__ == "__main__"):
+if __name__ == "__main__":
     root = Tk()
     app = CropApp(root, "./ROISavedFiles", 636, 434)
     root.mainloop()
