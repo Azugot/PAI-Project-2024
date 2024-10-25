@@ -91,7 +91,6 @@ class CropApp:
         self.showArea = Button(self.app, width=20, text='SHOW ROI', font='none 12', command=self.showROI)
         self.saveSelectedROI = Button(self.app, width=20, text='SAVE ROI', font='none 12', command=self.saveROI)
         self.viewGLCMButton = Button(self.app, width=20, text='VIEW GLCM & TEXTURE', font='none 12', command=self.viewGLCM)
-        self.viewNTDescriptorButton = Button(self.app, width=20, text='VIEW NT DESCRIPTOR', font='none 12', command=self.viewNTDescriptorMatricula)
         self.SHOWROIWIP = Button(self.app, width=20, text='ROI WINDOW', font='none 12', command=self.showROIWindow)
         
         
@@ -114,7 +113,6 @@ class CropApp:
         self.toggleZoomButton.grid(row=4, column=1, sticky="n", padx=5)
         self.saveSelectedROI.grid(row=5, column=0, sticky="n")
         self.viewGLCMButton.grid(row=8, column=0, sticky="n")
-        self.viewNTDescriptorButton.grid(row=9, column=0, sticky="n")
         self.previousPatientImage.grid(row=11, column=0, sticky="n", padx=5)
         self.previousPatient.grid(row=12, column=0, sticky="n", padx=5)
         self.nextPatientImage.grid(row=11, column=1, sticky="n", padx=5)
@@ -690,65 +688,6 @@ class CropApp:
             featuresLabel = Label(frame, text=featuresText, font='none 12', justify='left')
             featuresLabel.pack(side='right', padx=10)   
 
-    def viewNTDescriptorMatricula(self, matriculas=[766639, 772198, 1378247]):
-        
-        # Calcula NT
-        NT = sum(matriculas) % 4
-
-        # Cria uma janela nova
-        ntWindow = Toplevel(self.app)
-        ntWindow.title("NT Descriptor of Saved ROIs")
-        ntWindow.geometry("1200x800")
-
-        # Barra de rolagem
-        scrollable_frame = self.createScrollableCanvas(ntWindow)
-
-        # Pega todos os arquivos salvos
-        roiFiles = self.listSavedROIFiles()
-
-        # Calcula a matriz GLCM
-        for roiFile in roiFiles:
-            roiPath = os.path.join(self.savePath, roiFile)
-            roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
-
-            # Cria GLCM matrix
-            glcm = graycomatrix(roiImage, distances=[1], angles=[0], levels=256, symmetric=True, normed=True)
-
-            # Escolhe o descritor baseado em NT
-            if NT == 0:
-                descriptor_value = greycoprops(glcm, 'contrast')[0, 0]
-                descriptor_name = 'Contrast'
-            elif NT == 1:
-                descriptor_value = greycoprops(glcm, 'dissimilarity')[0, 0]
-                descriptor_name = 'Dissimilarity'
-            elif NT == 2:
-                descriptor_value = greycoprops(glcm, 'homogeneity')[0, 0]
-                descriptor_name = 'Homogeneity'
-            elif NT == 3:
-                descriptor_value = greycoprops(glcm, 'energy')[0, 0]
-                descriptor_name = 'Energy'
-
-            # Exibe as imagens e o resultado um do lado do outro
-            frame = Frame(scrollable_frame)
-            frame.pack(pady=10)
-
-            # Mostra a ROI
-            roiPIL = Image.fromarray(roiImage)
-            roiPIL = roiPIL.resize((200, 200), Image.LANCZOS)
-            roiPhoto = ImageTk.PhotoImage(roiPIL)
-            imgLabel = Label(frame, image=roiPhoto)
-            imgLabel.image = roiPhoto 
-            imgLabel.pack(side='left', padx=10)
-
-            # Mostra o descritor
-            featuresText = (
-                f"{descriptor_name}: {descriptor_value:.4f}"
-            )
-
-            # Alinhamentos
-            featuresLabel = Label(frame, text=featuresText, font='none 12', justify='left')
-            featuresLabel.pack(side='right', padx=10)
-
     def calculo_entropia_glcm(self, glcm):
         glcm_normalized = glcm / np.sum(glcm)
         entropy = 0
@@ -827,53 +766,49 @@ class CropApp:
 #ROI IMAGE WINDOW (This is here because the code is already unorganized) Fuck Monoliths
     def showROIWindow(self):
         print("I AM STEVE")
-        
+
         ROICanvasWidth = 280
         ROICanvasHeight = 280
-        
+
         ROIWindowBase = Toplevel(self.app)
         ROIWindowBase.title("ROIs")
         ROIWindowBase.geometry("1200x800")
-        
+
         sidebarWithScroll = self.createScrollableCanvas(ROIWindowBase)
         sidebarWithScroll.config(bg='white')
-        
+
         ROISideBar = Frame(sidebarWithScroll, bg='white')
         ROISideBar.pack(side=tk.LEFT, fill=tk.Y, expand=True, padx=10, pady=10)
-        
-        ROIDisplay =Frame(ROIWindowBase)
+
+        ROIDisplay = Frame(ROIWindowBase)
         ROIDisplay.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
+
         self.ROIArea = Canvas(ROIDisplay, width=ROICanvasWidth, height=ROICanvasHeight, bg='#C8C8C8')
         self.ROIArea.pack()
-        
-        # Adding a frame for the histogram next to the ROI canvas
+
         self.histogramFrame = Frame(ROIWindowBase)
         self.histogramFrame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
+
         resetZoomButtonROI = Button(ROIDisplay, width=20, text='RESET ZOOM', font='none 12', command=self.resetZoomROI)
         zoomOutButtonROI = Button(ROIDisplay, width=20, text='-', font='none 12', command=self.zoomOutROI)
         zoomInButtonROI = Button(ROIDisplay, width=20, text='+', font='none 12', command=self.zoomInROI)
-        
+
         resetZoomButtonROI.pack(side=tk.BOTTOM)
         zoomInButtonROI.pack(side=tk.BOTTOM)
         zoomOutButtonROI.pack(side=tk.BOTTOM)
-        
+
         roiFiles = self.listSavedROIFiles()
-        
-        # abre a nova janela
+
         for roiFile in roiFiles:
             roiPath = os.path.join(self.savePath, roiFile)
-            print(roiFile)
-            imgButton = Button(ROISideBar, text=roiFile, font='none 12', command=lambda roiPath=roiPath: self.displayItemsInROICanvas(roiPath, self.ROIArea, ROICanvasHeight, ROICanvasWidth))
+            imgButton = Button(ROISideBar, text=roiFile, font='none 12', command=lambda roiPath=roiPath: self.displayItemsInROICanvas(roiPath, self.ROIArea, ROICanvasHeight, ROICanvasWidth, ROIDisplay))
             imgButton.pack(pady=5)
-            pass
     
-    def displayItemsInROICanvas(self, roiPath, ROIArea, ROICanvasHeight, ROICanvasWidth):
+    def displayItemsInROICanvas(self, roiPath, ROIArea, ROICanvasHeight, ROICanvasWidth, ROIDisplay):
         self.displayROIinROIWindowCanvas(roiPath, ROIArea, ROICanvasHeight, ROICanvasWidth)
-        self.displayROIinHistogramCanvas(roiPath, ROICanvasWidth, ROICanvasHeight)
+        self.displayHistogramInROIWindow(roiPath, ROICanvasWidth, ROICanvasHeight)
+        self.displayNTInROIWindow(roiPath, ROIDisplay)
         
-    
     def displayROIinROIWindowCanvas(self, roiPath, ROIArea, ROICanvasHeight, ROICanvasWidth):
         ROIArea.delete("all")
         print("You are now viewing: " + roiPath)
@@ -896,8 +831,7 @@ class CropApp:
         # Display the image at the calculated center position
         ROIArea.create_image(offsetX, offsetY, image=self.ROIimageTk, anchor='nw')
 
-
-    def displayROIinHistogramCanvas(self, roiPath, histWidth=280, histHeight=280):
+    def displayHistogramInROIWindow(self, roiPath, histWidth=280, histHeight=280):
     # Clear the previous histogram
         for widget in self.histogramFrame.winfo_children():
             widget.destroy()
@@ -937,6 +871,43 @@ class CropApp:
         hist_widget = canvas_hist.get_tk_widget()
         hist_widget.pack(fill=tk.BOTH, expand=False, padx=10, pady=10)
         hist_widget.config(width=histWidth*1.5, height=histHeight)
+
+    def displayNTInROIWindow(self, roiPath, ROIDisplay, matriculas=[766639, 772198, 1378247]):
+        # Calcula NT
+        NT = sum(matriculas) % 4
+
+        roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
+
+        # Cria GLCM matrix
+        glcm = graycomatrix(roiImage, distances=[1], angles=[0], levels=256, symmetric=True, normed=True)
+
+        # Escolhe o descritor baseado em NT
+        if NT == 0:
+            descriptor_value = greycoprops(glcm, 'contrast')[0, 0]
+            descriptor_name = 'Contrast'
+        elif NT == 1:
+            descriptor_value = greycoprops(glcm, 'dissimilarity')[0, 0]
+            descriptor_name = 'Dissimilarity'
+        elif NT == 2:
+            descriptor_value = greycoprops(glcm, 'homogeneity')[0, 0]
+            descriptor_name = 'Homogeneity'
+        elif NT == 3:
+            descriptor_value = greycoprops(glcm, 'energy')[0, 0]
+            descriptor_name = 'Energy'
+
+
+        # Add the NT descriptor as a separate Label below the canvas
+        featuresText = f"{descriptor_name}: {descriptor_value:.4f}"
+
+        # Remove any existing labels under the canvas before adding the new one
+        for widget in ROIDisplay.winfo_children():
+            if isinstance(widget, Label):
+                widget.destroy()
+
+        # Create a label for the NT descriptor and pack it below the canvas
+        descriptorLabel = Label(ROIDisplay, text=featuresText, font='none 12', justify='center')
+        descriptorLabel.pack(pady=10)  # Padding to add space between the canvas and the label
+
 
 #Z O O OMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM 
     
