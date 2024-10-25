@@ -64,7 +64,7 @@ class CropApp:
         self.imageArea.pack()
 
         # Canvas para o histograma - ajuste o tamanho aqui
-        self.histCanvas = Canvas(self.histFrame, width=uiWidth, height=uiHeight, bg='#E8E8E8')  # Aumente width e height conforme necessário
+        self.histCanvas = Canvas(self.histFrame, width=uiWidth, height=uiHeight, bg='#E8E8E8')
         self.histCanvas.pack()
 
         self.roi1 = None
@@ -87,11 +87,9 @@ class CropApp:
         
         # ROI Related Buttons (initially hidden)
         self.chooseRoi = Button(self.app, width=20, text='SELECT ROI', font='none 12', command=self.toggleROI)
-        self.chooseRoi.grid(row=4, column=0, sticky="n", padx=10, pady=10)
 
         self.showArea = Button(self.app, width=20, text='SHOW ROI', font='none 12', command=self.showROI)
         self.saveSelectedROI = Button(self.app, width=20, text='SAVE ROI', font='none 12', command=self.saveROI)
-        self.viewHistogramsButton = Button(self.app, width=20, text='VIEW HISTOGRAMS', font='none 12', command=self.viewHistograms)
         self.viewGLCMButton = Button(self.app, width=20, text='VIEW GLCM & TEXTURE', font='none 12', command=self.viewGLCM)
         self.viewNTDescriptorButton = Button(self.app, width=20, text='VIEW NT DESCRIPTOR', font='none 12', command=self.viewNTDescriptorMatricula)
         self.SHOWROIWIP = Button(self.app, width=20, text='ROI WINDOW', font='none 12', command=self.showROIWindow)
@@ -115,7 +113,6 @@ class CropApp:
         self.chooseRoi.grid(row=4, column=0, sticky="n")
         self.toggleZoomButton.grid(row=4, column=1, sticky="n", padx=5)
         self.saveSelectedROI.grid(row=5, column=0, sticky="n")
-        self.viewHistogramsButton.grid(row=7, column=0, sticky="n")
         self.viewGLCMButton.grid(row=8, column=0, sticky="n")
         self.viewNTDescriptorButton.grid(row=9, column=0, sticky="n")
         self.previousPatientImage.grid(row=11, column=0, sticky="n", padx=5)
@@ -126,6 +123,8 @@ class CropApp:
         self.resetZoomButton.grid(row=10, column=0, sticky="n")
         self.zoomInButton.grid(row=14, column=2, sticky="n", padx=5)
         self.zoomOutButton.grid(row=15, column=2, sticky="n", padx=5)
+        self.chooseRoi.grid(row=4, column=0, sticky="n", padx=10, pady=10)
+        
 
     def readImage(self):
         self.matFileIsOpen = False
@@ -229,7 +228,6 @@ class CropApp:
 
         buf.close()
         plt.close(fig)
-
 
     def navigateThroughMatFile(self, numPatient,imgPatient):
         if(self.matFileIsOpen and self.path):
@@ -464,7 +462,7 @@ class CropApp:
             self.imageArea.delete(self.areaROI1)
         
         #faz o quadrado da roi com tamanho fixo de 28x28 pixels
-        self.areaROI1 = self.imageArea.create_rectangle(self.startX, self.startY, self.startX + 28, self.startY + 28, outline="green", width=2)
+        self.areaROI1 = self.imageArea.create_rectangle(self.startX-14, self.startY-14, self.startX+14, self.startY+14, outline="green", width=2)
         
         #salva as coordenadas da primeira roi
         self.roi1 = (self.startX, self.startY, self.startX + 28, self.startY + 28)
@@ -495,7 +493,7 @@ class CropApp:
             self.imageArea.delete(self.areaROI2)
         
         #faz o quadrado da roi com tamanho fixo de 28x28 pixels
-        self.areaROI2 = self.imageArea.create_rectangle(self.startX, self.startY, self.startX + 28, self.startY + 28, outline="green", width=2)
+        self.areaROI2 = self.imageArea.create_rectangle(self.startX-14, self.startY-14, self.startX+14, self.startY+14, outline="green", width=2)
         
         #salva as coordenadas da primeira roi        
         self.roi2 = (self.startX, self.startY, self.startX + 28, self.startY + 28)
@@ -634,57 +632,6 @@ class CropApp:
             if (self.imgPatient >= 0 and self.imgPatient <= 9):
                 self.navigateThroughMatFile(self.numPatient, self.imgPatient)
 
-    # H I S T O G R A M A
-    def viewHistograms(self):
-        # Cria uma nova janela
-        histWindow = Toplevel(self.app)
-        histWindow.title("Histograms of Saved ROIs")
-        histWindow.geometry("1200x800")
-
-        # Coloca um scroll
-        scrollable_frame = self.createScrollableCanvas(histWindow)
-
-        # Pega todos os arquivos salvos
-        roiFiles = self.listSavedROIFiles()
-
-        # Processa cada imagem
-        for roiFile in roiFiles:
-            roiPath = os.path.join(self.savePath, roiFile)
-            roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE) 
-
-            height, width = roiImage.shape
-            total_pixels = height * width
-
-            hist = np.zeros(256, dtype=int)
-            for i in range(height):
-                for j in range(width):
-                    intensity_value = roiImage[i, j]
-                    hist[intensity_value] += 1
-
-            assert sum(hist) == total_pixels, "A soma do histograma deve ser igual ao número total de pixels"
-
-            frame = Frame(scrollable_frame)
-            frame.pack(pady=10)
-
-            roiPIL = Image.fromarray(roiImage) 
-            roiPIL = roiPIL.resize((200, 200), Image.LANCZOS)
-            roiPhoto = ImageTk.PhotoImage(roiPIL)
-            imgLabel = Label(frame, image=roiPhoto)
-            imgLabel.image = roiPhoto
-            imgLabel.pack(side='left', padx=10)
-
-            # Plotar o histograma
-            fig, ax = plt.subplots(figsize=(5, 3))
-            ax.set_title(f"Histogram for {roiFile}")
-            ax.plot(hist, color='black')
-            ax.set_xlim([0, 255])
-            ax.set_xlabel('Pixel Intensity')
-            ax.set_ylabel('Number of Pixels')
-
-            canvas_hist = FigureCanvasTkAgg(fig, master=frame)
-            canvas_hist.draw()
-            canvas_hist.get_tk_widget().pack(side='right', padx=10)
-
     # M A T R I Z
     def viewGLCM(self):
         # Cria uma janela nova
@@ -743,9 +690,9 @@ class CropApp:
             featuresLabel = Label(frame, text=featuresText, font='none 12', justify='left')
             featuresLabel.pack(side='right', padx=10)   
 
-    def viewNTDescriptorMatricula(self):
+    def viewNTDescriptorMatricula(self, matriculas=[766639, 772198, 1378247]):
+        
         # Calcula NT
-        matriculas = [766639, 772198, 1378247]
         NT = sum(matriculas) % 4
 
         # Cria uma janela nova
@@ -889,15 +836,20 @@ class CropApp:
         ROIWindowBase.geometry("1200x800")
         
         sidebarWithScroll = self.createScrollableCanvas(ROIWindowBase)
+        sidebarWithScroll.config(bg='white')
         
-        ROISideBar = Frame(sidebarWithScroll)
-        ROISideBar.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=10)
+        ROISideBar = Frame(sidebarWithScroll, bg='white')
+        ROISideBar.pack(side=tk.LEFT, fill=tk.Y, expand=True, padx=10, pady=10)
         
         ROIDisplay =Frame(ROIWindowBase)
         ROIDisplay.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         self.ROIArea = Canvas(ROIDisplay, width=ROICanvasWidth, height=ROICanvasHeight, bg='#C8C8C8')
         self.ROIArea.pack()
+        
+        # Adding a frame for the histogram next to the ROI canvas
+        self.histogramFrame = Frame(ROIWindowBase)
+        self.histogramFrame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         resetZoomButtonROI = Button(ROIDisplay, width=20, text='RESET ZOOM', font='none 12', command=self.resetZoomROI)
         zoomOutButtonROI = Button(ROIDisplay, width=20, text='-', font='none 12', command=self.zoomOutROI)
@@ -907,16 +859,20 @@ class CropApp:
         zoomInButtonROI.pack(side=tk.BOTTOM)
         zoomOutButtonROI.pack(side=tk.BOTTOM)
         
-        
         roiFiles = self.listSavedROIFiles()
         
         # abre a nova janela
         for roiFile in roiFiles:
             roiPath = os.path.join(self.savePath, roiFile)
             print(roiFile)
-            imgButton = Button(ROISideBar, text=roiFile, font='none 12', command=lambda roiPath=roiPath: self.displayROIinROIWindowCanvas(roiPath, self.ROIArea, ROICanvasHeight, ROICanvasWidth))
+            imgButton = Button(ROISideBar, text=roiFile, font='none 12', command=lambda roiPath=roiPath: self.displayItemsInROICanvas(roiPath, self.ROIArea, ROICanvasHeight, ROICanvasWidth))
             imgButton.pack(pady=5)
             pass
+    
+    def displayItemsInROICanvas(self, roiPath, ROIArea, ROICanvasHeight, ROICanvasWidth):
+        self.displayROIinROIWindowCanvas(roiPath, ROIArea, ROICanvasHeight, ROICanvasWidth)
+        self.displayROIinHistogramCanvas(roiPath, ROICanvasWidth, ROICanvasHeight)
+        
     
     def displayROIinROIWindowCanvas(self, roiPath, ROIArea, ROICanvasHeight, ROICanvasWidth):
         ROIArea.delete("all")
@@ -939,6 +895,48 @@ class CropApp:
 
         # Display the image at the calculated center position
         ROIArea.create_image(offsetX, offsetY, image=self.ROIimageTk, anchor='nw')
+
+
+    def displayROIinHistogramCanvas(self, roiPath, histWidth=280, histHeight=280):
+    # Clear the previous histogram
+        for widget in self.histogramFrame.winfo_children():
+            widget.destroy()
+    
+        # Load the ROI image
+        roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
+    
+        # Calculate the histogram
+        height, width = roiImage.shape
+        total_pixels = height * width
+    
+        hist = np.zeros(256, dtype=int)
+        for i in range(height):
+            for j in range(width):
+                intensity_value = roiImage[i, j]
+                hist[intensity_value] += 1
+    
+        assert sum(hist) == total_pixels, "The sum of the histogram must equal the total number of pixels"
+    
+        # Plot the histogram with fixed size 280x280
+        fig, ax = plt.subplots(figsize=(2.8, 2.8))  # 280x280 pixels
+        ax.set_title(f"Histogram for {os.path.basename(roiPath)}", fontsize=10)
+        ax.plot(hist, color='black')
+        ax.set_xlim([0, 255])
+        ax.set_xlabel('Pixel Intensity', fontsize=8)
+        ax.set_ylabel('Number of Pixels', fontsize=8)
+        ax.tick_params(axis='both', which='major', labelsize=8)
+    
+        # Adjust the layout to prevent cutting off labels
+        fig.tight_layout()
+    
+        # Embed the plot in the histogram frame
+        canvas_hist = FigureCanvasTkAgg(fig, master=self.histogramFrame)
+        canvas_hist.draw()
+    
+        # Ensure the canvas is fixed to 280x280 size
+        hist_widget = canvas_hist.get_tk_widget()
+        hist_widget.pack(fill=tk.BOTH, expand=False, padx=10, pady=10)
+        hist_widget.config(width=histWidth*1.5, height=histHeight)
 
 #Z O O OMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM 
     
