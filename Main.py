@@ -699,6 +699,7 @@ class CropApp:
         self.displayNTInROIWindow(roiPath, ROIDisplay)
         self.displayGLCMPropertiesInROIWindow(roiPath, ROIDisplay)
         self.displayRadialGLCMInROIWindow(roiPath, self.histogramFrame)
+        self.displaySFMPropertiesInROIWindow(roiPath, ROIDisplay)
         
     def displayROIinROIWindowCanvas(self, roiPath, ROIArea, ROICanvasHeight, ROICanvasWidth):
         ROIArea.delete("all")
@@ -843,7 +844,6 @@ class CropApp:
 
         # Add the NT descriptor as a separate Label below the canvas
         featuresText = (
-            "NT DESCRIPTOR\n"
             f"{descriptor_name}: {descriptor_value:.4f}"
         )
 
@@ -853,6 +853,8 @@ class CropApp:
                 widget.destroy()
 
         # Create a label for the NT descriptor and pack it below the canvas
+        NTLabel = Label(ROIDisplay, text="NT DESCRIPTOR", font='none 12 bold', justify='center')
+        NTLabel.pack(pady=5)
         descriptorLabel = Label(ROIDisplay, text=featuresText, font='none 12', justify='center')
         descriptorLabel.pack(pady=10)  # Padding to add space between the canvas and the label
 
@@ -872,7 +874,6 @@ class CropApp:
 
         # Format the GLCM properties
         glcmText = (
-            "GLCM & TEXTURE\n"
             f"Contrast: {contrast:.4f}\n"
             f"Dissimilarity: {dissimilarity:.4f}\n"
             f"Homogeneity: {homogeneity:.4f}\n"
@@ -881,8 +882,52 @@ class CropApp:
         )
 
         # Create a label for the GLCM properties and pack it below the canvas
-        glcmLabel = Label(ROIDisplay, text=glcmText, font='none 12', justify='center')
-        glcmLabel.pack(pady=10)
+        glcmLabel = Label(ROIDisplay, text="GLCM & TEXTURE", font='none 12 bold', justify='center')
+        glcmLabel.pack(pady=5)
+        featuresLabel = Label(ROIDisplay, text=glcmText, font='none 12', justify='center')
+        featuresLabel.pack(pady=10)
+
+
+    def displaySFMPropertiesInROIWindow(self, roiPath, ROIDisplay):
+        # Carrega a imagem da ROI
+        roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
+
+        # Coarseness - usando filtro de média e variância local
+        kernel_size = 3
+        local_mean = cv2.blur(roiImage, (kernel_size, kernel_size))
+        local_var = cv2.blur((roiImage - local_mean)**2, (kernel_size, kernel_size))
+        coarseness = np.mean(local_var)
+
+        # Contrast - calculado com a GLCM
+        glcm = graycomatrix(roiImage, distances=[1], angles=[0], levels=256, symmetric=True, normed=True)
+        contrast = greycoprops(glcm, 'contrast')[0, 0]
+
+        # Periodicity - usando transformada de Fourier
+        f_transform = np.fft.fft2(roiImage)
+        f_transform_shifted = np.fft.fftshift(f_transform)
+        magnitude_spectrum = np.abs(f_transform_shifted)
+        periodicity = np.mean(magnitude_spectrum)
+
+        # Roughness - média dos gradientes locais
+        grad_x = cv2.Sobel(roiImage, cv2.CV_64F, 1, 0, ksize=3)
+        grad_y = cv2.Sobel(roiImage, cv2.CV_64F, 0, 1, ksize=3)
+        roughness = np.mean(np.sqrt(grad_x**2 + grad_y**2))
+
+        # Formatação das propriedades SFM
+        sfmText = (
+            f"Coarseness: {coarseness:.4f}\n"
+            f"Contrast: {contrast:.4f}\n"
+            f"Periodicity: {periodicity:.4f}\n"
+            f"Roughness: {roughness:.4f}"
+        )
+
+        # Cria um label para as propriedades da SFM e exibe abaixo do canvas
+        sfmLabel = Label(ROIDisplay, text="SMF PROPERTIES", font='none 12 bold', justify='center')
+        sfmLabel.pack(pady=5)
+        featuresLabel = Label(ROIDisplay, text=sfmText, font='none 12', justify='center')
+        featuresLabel.pack(pady=10)
+
+
 
 #Z O O OMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM  
     def zoomInROI(self):
