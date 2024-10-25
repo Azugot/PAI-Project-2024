@@ -86,11 +86,10 @@ class CropApp:
         
         # ROI Related Buttons (initially hidden)
         self.chooseRoi = Button(self.app, width=20, text='SELECT ROI', font='none 12', command=self.toggleROI)
-
         self.showArea = Button(self.app, width=20, text='SHOW ROI', font='none 12', command=self.showROI)
         self.saveSelectedROI = Button(self.app, width=20, text='SAVE ROI', font='none 12', command=self.saveROI)
-        self.SHOWROIWIP = Button(self.app, width=20, text='ROI WINDOW', font='none 12', command=self.showROIWindow)
-        
+        self.openROIWindow = Button(self.app, width=20, text='ROI WINDOW', font='none 12', command=self.showROIWindow)
+        self.resetROISelection = Button(self.app, width=20, text='RESET ROI', font='none 12', command=self.deleteDualROIarea)
         
         # Zoom Reset Button (initially hidden)
         self.resetZoomButton = Button(self.app, width=20, text='RESET ZOOM', font='none 12', command=self.resetZoom)
@@ -102,7 +101,7 @@ class CropApp:
         self.openImage.grid(row=1, column=0, sticky="n")
         self.openMat.grid(row=2, column=0, sticky="n")
         self.imageArea.grid(row=0, column=0, columnspan=3)
-        self.SHOWROIWIP.grid(row=3, column=0, columnspan=3)
+        self.openROIWindow.grid(row=3, column=0, columnspan=3)
 
     #M OSTRAR BOTOES DPS DE ENVIAR A IMAGEM
     def showAdditionalButtons(self):
@@ -118,12 +117,13 @@ class CropApp:
         self.zoomInButton.grid(row=14, column=2, sticky="n", padx=5)
         self.zoomOutButton.grid(row=15, column=2, sticky="n", padx=5)
         self.chooseRoi.grid(row=4, column=0, sticky="n", padx=10, pady=10)
+        self.resetROISelection.grid(row=6, column=0, sticky="n", padx=10, pady=10)
         
     def readImage(self):
         self.matFileIsOpen = False
         self.matFile = None
         path = filedialog.askopenfilename()
-        if path:
+        if (path):
             self.imageArea.delete("all")
             self.histCanvas.delete("all")
             self.image = Image.open(path)
@@ -134,7 +134,7 @@ class CropApp:
             self.showAdditionalButtons()
     
     
-        if 0 <= self.lasX < 500 and 0 <= self.lasY < 400:
+        if (0 <= self.lasX < 500 and 0 <= self.lasY < 400):
             self.mask[self.lasY][self.lasX] = 0 
             self.mask[self.lasY+1][self.lasX+1] = 0 
             self.mask[self.lasY-1][self.lasX-1] = 0 
@@ -142,7 +142,7 @@ class CropApp:
             self.mask[self.lasY-1][self.lasX+1] = 0 
 
 
-        if 0 <= self.lasX < 500 and 0 <= self.lasY < 400:
+        if (0 <= self.lasX < 500 and 0 <= self.lasY < 400):
             self.mask[self.lasY][self.lasX] = 0 
             self.mask[self.lasY+1][self.lasX+1] = 0 
             self.mask[self.lasY-1][self.lasX-1] = 0 
@@ -183,7 +183,7 @@ class CropApp:
             self.showHistogram(matImage)
 
     def showHistogram(self, matImage):
-        if len(matImage.shape) == 3: 
+        if (len(matImage.shape) == 3): 
             matImage = cv2.cvtColor(matImage, cv2.COLOR_BGR2GRAY)
 
         height, width = matImage.shape
@@ -223,7 +223,7 @@ class CropApp:
         plt.close(fig)
 
     def navigateThroughMatFile(self, numPatient,imgPatient):
-        if(self.matFileIsOpen and self.path):
+        if (self.matFileIsOpen and self.path):
             # Load matrix into data variable
             data = scipy.io.loadmat(self.path)
 
@@ -273,7 +273,7 @@ class CropApp:
             self.imageArea.bind("<B2-Motion>", self.moveImage)
             
             #ROI STUFF
-            if(self.roiOn):
+            if (self.roiOn):
                 self.toggleROI()
             #DO NOT TOUCH THIS PART ===============
             
@@ -323,7 +323,7 @@ class CropApp:
 #ROI RELATED METHODS
     def listSavedROIFiles(self):
         # Function to list all saved ROI files
-        return [f for f in os.listdir(self.savePath) if os.path.isfile(os.path.join(self.savePath, f))]    
+        return [f for f in os.listdir(self.savePath) if (os.path.isfile(os.path.join(self.savePath, f)))]    
 
     def saveROI(self):
         if (self.roi1 and self.roi2):  # verifica se as duas rois foram selecionadas pq so pode salvar depois das duas marcadas
@@ -362,7 +362,7 @@ class CropApp:
             csv_file = os.path.join(self.savePath, 'rois_data.csv')
 
             # Inicializa uma lista com 550 linhas em branco se o arquivo não existir
-            if not os.path.exists(csv_file):
+            if (not os.path.exists(csv_file)):
                 with open(csv_file, mode='w', newline='') as file:
                     writer = csv.writer(file)
                     writer.writerow(['Arquivo', 'Classificação', 'ROI Fígado ', 'ROI Rim', 'HI'])
@@ -393,9 +393,21 @@ class CropApp:
             print("Marque as ROIs fígado e rim antes de salvar.")
 
     def deleteROIarea(self):
-        if(self.areaROI):
+        if (self.areaROI):
             self.imageArea.delete(self.areaROI)
             self.areaROI = None
+
+    def deleteDualROIarea(self):
+        if (self.areaROI1 or self.areaROI2):
+            self.roi1 = None
+            self.roi2 = None
+            self.imageArea.delete(self.areaROI1)
+            self.imageArea.delete(self.areaROI2)
+            self.areaROI1 = None
+            self.areaROI2 = None
+            print("ROIs resetadas.")
+            if (self.roiOn):
+                self.gotoROI1()
 
     def toggleROI(self):
         #DO NOT TOUCH THIS PART ===============
@@ -405,7 +417,7 @@ class CropApp:
             self.chooseRoi.config(text="SELECT ROI")
             self.imageArea.unbind("<Button-1>")
             self.imageArea.unbind("<B1-Motion>")
-            self.deleteROIarea()
+            self.deleteDualROIarea()
             #DO NOT TOUCH THIS PART ===============
 
         else:
@@ -415,25 +427,16 @@ class CropApp:
             self.chooseRoi.config(text="END SELECT ROI")
 
             # Disable zoom while selecting ROIs
-            if(self.zoomEnabled):
+            if (self.zoomEnabled):
                 self.toggleZoom()
             #DO NOT TOUCH THIS PART ===============
             
-            
             # Determine which ROI to select next
-            if self.roi1 is not None and self.roi2 is None:
-                # If liver ROI (ROI 1) is already selected, allow kidney ROI (ROI 2) selection
-                self.chooseRoi.config(text="SELECT KIDNEY ROI (ROI 2)")
-                self.imageArea.bind("<Button-1>", self.startDrawROI2)
-                self.imageArea.bind("<B1-Motion>", self.finishDrawROI2)
-                print("Marque a segunda ROI (rim).")
+            if (self.roi1 is not None and self.roi2 is None):
+                self.gotoROI2()
             
-            elif self.roi1 is None:
-                # If no ROI is selected, start with liver ROI (ROI 1)
-                self.chooseRoi.config(text="SELECT LIVER ROI (ROI 1)")
-                self.imageArea.bind("<Button-1>", self.startDrawROI)
-                self.imageArea.bind("<B1-Motion>", self.finishDrawROI)
-                print("Marque a primeira ROI (fígado).")
+            elif (self.roi1 is None):
+                self.gotoROI1()
             
             else:
                 # If both ROIs are already selected
@@ -441,9 +444,24 @@ class CropApp:
                 self.chooseRoi.config(text="ROIs SELECTED")
                 self.imageArea.unbind("<Button-1>")
                 self.imageArea.unbind("<B1-Motion>")
+                
         print(f"""TOGGLE STATUS:
                 ROI:{self.roiOn}
                 ZOOM:{self.zoomEnabled}""")
+
+    def gotoROI1(self):
+        # If no ROI is selected, start with liver ROI (ROI 1)
+        self.chooseRoi.config(text="SELECT LIVER ROI (ROI 1)")
+        self.imageArea.bind("<Button-1>", self.startDrawROI)
+        self.imageArea.bind("<B1-Motion>", self.finishDrawROI)
+        print("Marque a primeira ROI (fígado).")
+        
+    def gotoROI2(self):
+        # If liver ROI (ROI 1) is already selected, allow kidney ROI (ROI 2) selection
+            self.chooseRoi.config(text="SELECT KIDNEY ROI (ROI 2)")
+            self.imageArea.bind("<Button-1>", self.startDrawROI2)
+            self.imageArea.bind("<B1-Motion>", self.finishDrawROI2)
+            print("Marque a segunda ROI (rim).")
 
     def startDrawROI(self, event):
         # Pega o clique inicial
@@ -451,7 +469,7 @@ class CropApp:
         self.startY = event.y
         
         #remove qualquer roi anterior desenhada
-        if self.areaROI1:
+        if (self.areaROI1):
             self.imageArea.delete(self.areaROI1)
         
         #faz o quadrado da roi com tamanho fixo de 28x28 pixels
@@ -482,7 +500,7 @@ class CropApp:
         self.startY = event.y
         
         #remove qualquer roi anterior desenhada
-        if self.areaROI2:
+        if (self.areaROI2):
             self.imageArea.delete(self.areaROI2)
         
         #faz o quadrado da roi com tamanho fixo de 28x28 pixels
@@ -538,7 +556,7 @@ class CropApp:
         return self.imageForMaskMultiplication.crop((correctedX1, correctedY1, correctedX2, correctedY2))
     
     def showROI(self):  
-        if(self.areaROI1 and self.areaROI2):
+        if (self.areaROI1 and self.areaROI2):
             liverROI = self.acquireROI(self.roi1)  #salva as coordenadas da roi 1
             kidneyROI = self.acquireROI(self.roi2)  #salva as coordenadas da roi 2
 
@@ -571,7 +589,7 @@ class CropApp:
     
     def nextMatPatient(self):
         if (self.matFileIsOpen):
-            if self.numPatient >= 54:
+            if (self.numPatient >= 54):
                 self.numPatient = 0
             else:
                 self.numPatient += 1
@@ -586,7 +604,7 @@ class CropApp:
     
     def previousMatPatient(self):
         if (self.matFileIsOpen):
-            if self.numPatient <= 0:
+            if (self.numPatient <= 0):
                 self.numPatient = 54
             else:
                 self.numPatient -= 1
@@ -630,7 +648,7 @@ class CropApp:
         entropy = 0
         for i in range(glcm_normalized.shape[0]):
             for j in range(glcm_normalized.shape[1]):
-                if glcm_normalized[i, j] > 0:  # Evitar log(0)
+                if (glcm_normalized[i, j] > 0):  # Evitar log(0)
                     entropy -= glcm_normalized[i, j] * log(glcm_normalized[i, j])
         return entropy 
   
@@ -789,7 +807,7 @@ class CropApp:
             )
 
             # Distribute the properties into two columns
-            if i < half:
+            if (i < half):
                 # Left column
                 featuresLabel = Label(leftFrame, text=glcmText, font='none 12', justify='left', anchor='w')
                 featuresLabel.pack(pady=5)
@@ -808,18 +826,19 @@ class CropApp:
         glcm = graycomatrix(roiImage, distances=[1], angles=[0], levels=256, symmetric=True, normed=True)
 
         # Escolhe o descritor baseado em NT
-        if NT == 0:
-            descriptor_value = greycoprops(glcm, 'contrast')[0, 0]
-            descriptor_name = 'Contrast'
-        elif NT == 1:
-            descriptor_value = greycoprops(glcm, 'dissimilarity')[0, 0]
-            descriptor_name = 'Dissimilarity'
-        elif NT == 2:
-            descriptor_value = greycoprops(glcm, 'homogeneity')[0, 0]
-            descriptor_name = 'Homogeneity'
-        elif NT == 3:
-            descriptor_value = greycoprops(glcm, 'energy')[0, 0]
-            descriptor_name = 'Energy'
+        match NT:
+            case 0:
+                descriptor_value = greycoprops(glcm, 'contrast')[0, 0]
+                descriptor_name = 'Contrast'
+            case 1:
+                descriptor_value = greycoprops(glcm, 'dissimilarity')[0, 0]
+                descriptor_name = 'Dissimilarity'
+            case 2:
+                descriptor_value = greycoprops(glcm, 'homogeneity')[0, 0]
+                descriptor_name = 'Homogeneity'
+            case 3:
+                descriptor_value = greycoprops(glcm, 'energy')[0, 0]
+                descriptor_name = 'Energy'
 
 
         # Add the NT descriptor as a separate Label below the canvas
@@ -830,7 +849,7 @@ class CropApp:
 
         # Remove any existing labels under the canvas before adding the new one
         for widget in ROIDisplay.winfo_children():
-            if isinstance(widget, Label):
+            if (isinstance(widget, Label)):
                 widget.destroy()
 
         # Create a label for the NT descriptor and pack it below the canvas
@@ -864,8 +883,8 @@ class CropApp:
         # Create a label for the GLCM properties and pack it below the canvas
         glcmLabel = Label(ROIDisplay, text=glcmText, font='none 12', justify='center')
         glcmLabel.pack(pady=10)
-#Z O O OMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM 
-    
+
+#Z O O OMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM  
     def zoomInROI(self):
         if (self.zoomEnabledROI):
             self.zoomLevelROI += 0.1
@@ -904,7 +923,7 @@ class CropApp:
         self.moveX, self.moveY = 0, 0  # Reset image position
         self.imageZoomUpdateROI()
 
-if( __name__ == "__main__"):
+if ( __name__ == "__main__"):
     root = Tk()
     app = CropApp(root, "./ROISavedFiles", 636, 434)
     root.mainloop()
