@@ -83,14 +83,12 @@ class CropApp:
         self.previousPatient = Button(self.app, width=20, text='PREVIOUS PATIENT', font='none 12', command=self.previousMatPatient)
         self.nextPatientImage = Button(self.app, width=20, text='NEXT PATIENT IMAGE', font='none 12', command=self.nextMatPatientImage)
         self.previousPatientImage = Button(self.app, width=20, text='PREVIOUS PATIENT IMAGE', font='none 12', command=self.previousMatPatientImage)
-        self.viewGLCMRadialButton = Button(self.app, width=20, text='VIEW GLCM RADIAL', font='none 12', command=self.viewGLCMRadial)
         
         # ROI Related Buttons (initially hidden)
         self.chooseRoi = Button(self.app, width=20, text='SELECT ROI', font='none 12', command=self.toggleROI)
 
         self.showArea = Button(self.app, width=20, text='SHOW ROI', font='none 12', command=self.showROI)
         self.saveSelectedROI = Button(self.app, width=20, text='SAVE ROI', font='none 12', command=self.saveROI)
-        self.viewGLCMButton = Button(self.app, width=20, text='VIEW GLCM & TEXTURE', font='none 12', command=self.viewGLCM)
         self.SHOWROIWIP = Button(self.app, width=20, text='ROI WINDOW', font='none 12', command=self.showROIWindow)
         
         
@@ -112,18 +110,15 @@ class CropApp:
         self.chooseRoi.grid(row=4, column=0, sticky="n")
         self.toggleZoomButton.grid(row=4, column=1, sticky="n", padx=5)
         self.saveSelectedROI.grid(row=5, column=0, sticky="n")
-        self.viewGLCMButton.grid(row=8, column=0, sticky="n")
         self.previousPatientImage.grid(row=11, column=0, sticky="n", padx=5)
         self.previousPatient.grid(row=12, column=0, sticky="n", padx=5)
         self.nextPatientImage.grid(row=11, column=1, sticky="n", padx=5)
         self.nextPatient.grid(row=12, column=1, sticky="n", padx=5)
-        self.viewGLCMRadialButton.grid(row=13, column=0, sticky="n")
         self.resetZoomButton.grid(row=10, column=0, sticky="n")
         self.zoomInButton.grid(row=14, column=2, sticky="n", padx=5)
         self.zoomOutButton.grid(row=15, column=2, sticky="n", padx=5)
         self.chooseRoi.grid(row=4, column=0, sticky="n", padx=10, pady=10)
         
-
     def readImage(self):
         self.matFileIsOpen = False
         self.matFile = None
@@ -630,64 +625,6 @@ class CropApp:
             if (self.imgPatient >= 0 and self.imgPatient <= 9):
                 self.navigateThroughMatFile(self.numPatient, self.imgPatient)
 
-    # M A T R I Z
-    def viewGLCM(self):
-        # Cria uma janela nova
-        glcmWindow = Toplevel(self.app)
-        glcmWindow.title("GLCM & Texture Features of Saved ROIs")
-        glcmWindow.geometry("1200x800")
-
-        #Barra de rolagem
-        scrollable_frame = self.createScrollableCanvas(glcmWindow)
-
-        # Pega todos os arquivos salvos
-        roiFiles = self.listSavedROIFiles()
-
-        # Calcula a matriz GLCM
-        for roiFile in roiFiles:
-            roiPath = os.path.join(self.savePath, roiFile)
-            roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
-
-            # Cria GLCM matrix
-            glcm = graycomatrix(roiImage, distances=[1], angles=[0], levels=256, symmetric=True, normed=True)
-
-            # Calcula a textura
-            # Cacula a intensidade de contraste entre um pixel e seus vizinhos
-            contrast = greycoprops(glcm, 'contrast')[0, 0]
-            # Mede a dissimilaridade entre pixels
-            dissimilarity = greycoprops(glcm, 'dissimilarity')[0, 0]
-            # Mede a homogeneidade de valores altos indicam regiões uniformes
-            homogeneity = greycoprops(glcm, 'homogeneity')[0, 0]
-            # Mede a uniformidade da textura
-            energy = greycoprops(glcm, 'energy')[0, 0]
-            # Mede a correlação linear entre pixels
-            correlation = greycoprops(glcm, 'correlation')[0, 0]
-
-            #Exibe as imagens e o resultado um do lado do outro
-            frame = Frame(scrollable_frame)
-            frame.pack(pady=10)
-
-            # Mostra a ROI
-            roiPIL = Image.fromarray(roiImage)
-            roiPIL = roiPIL.resize((200, 200), Image.LANCZOS)
-            roiPhoto = ImageTk.PhotoImage(roiPIL)
-            imgLabel = Label(frame, image=roiPhoto)
-            imgLabel.image = roiPhoto 
-            imgLabel.pack(side='left', padx=10)
-
-            # Mostra os textos
-            featuresText = (
-                f"Contrast: {contrast:.4f}\n"
-                f"Dissimilarity: {dissimilarity:.4f}\n"
-                f"Homogeneity: {homogeneity:.4f}\n"
-                f"Energy: {energy:.4f}\n"
-                f"Correlation: {correlation:.4f}"
-            )
-
-            # Alinhamentos
-            featuresLabel = Label(frame, text=featuresText, font='none 12', justify='left')
-            featuresLabel.pack(side='right', padx=10)   
-
     def calculo_entropia_glcm(self, glcm):
         glcm_normalized = glcm / np.sum(glcm)
         entropy = 0
@@ -696,73 +633,7 @@ class CropApp:
                 if glcm_normalized[i, j] > 0:  # Evitar log(0)
                     entropy -= glcm_normalized[i, j] * log(glcm_normalized[i, j])
         return entropy 
-
-    def viewGLCMRadial(self):
-        # Cria nova aba
-        glcmWindow = Toplevel(self.app)
-        glcmWindow.title("Radial GLCM & Texture Features of Saved ROIs")
-        glcmWindow.geometry("1200x800")
-
-        # Scroll
-        scrollable_frame = self.createScrollableCanvas(glcmWindow)
-
-        #Pega todos os arquivos
-        roiFiles = self.listSavedROIFiles()
-
-        # Calcula a distancia entre 1, 2, 4, 8
-        distances = [1, 2, 4, 8]
-        for roiFile in roiFiles:
-            roiPath = os.path.join(self.savePath, roiFile)
-            roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
-
-            frame = Frame(scrollable_frame)
-            frame.pack(pady=20)
-
-            roiPIL = Image.fromarray(roiImage)
-            roiPIL = roiPIL.resize((200, 200), Image.LANCZOS)
-            roiPhoto = ImageTk.PhotoImage(roiPIL)
-            imgLabel = Label(frame, image=roiPhoto)
-            imgLabel.image = roiPhoto
-            imgLabel.pack(side='top', pady=10)
-
-            textFrame = Frame(frame)
-            textFrame.pack(side='top', pady=10)
-
-            half = len(distances) // 2
-            leftFrame = Frame(textFrame)
-            leftFrame.pack(side='left', padx=20)
-
-            rightFrame = Frame(textFrame)
-            rightFrame.pack(side='left', padx=20)
-
-            # Calcula GLCMs para diferentes texturas e distancias e coloca em duas colunas
-            for i, distance in enumerate(distances):
-                glcm = graycomatrix(roiImage, distances=[distance], angles=[0], levels=256, symmetric=True, normed=True)
-                contrast = greycoprops(glcm, 'contrast')[0, 0]
-                dissimilarity = greycoprops(glcm, 'dissimilarity')[0, 0]
-                homogeneity = greycoprops(glcm, 'homogeneity')[0, 0]
-                energy = greycoprops(glcm, 'energy')[0, 0]
-                correlation = greycoprops(glcm, 'correlation')[0, 0]
-                entropy = self.calculo_entropia_glcm(glcm[:, :, 0, 0])
-
-                featuresText = (
-                    f"Distance {distance} px:\n"
-                    f"  Contrast: {contrast:.4f}\n"
-                    f"  Dissimilarity: {dissimilarity:.4f}\n"
-                    f"  Homogeneity: {homogeneity:.4f}\n"
-                    f"  Energy: {energy:.4f}\n"
-                    f"  Correlation: {correlation:.4f}\n"
-                    f"  Entropy: {entropy:.4f}\n"
-                )
-
-                # Adiciona as propriedades em duas colunas
-                if i < half:
-                    featuresLabel = Label(leftFrame, text=featuresText, font='none 12', justify='left', anchor='w')
-                    featuresLabel.pack(pady=5)
-                else:
-                    featuresLabel = Label(rightFrame, text=featuresText, font='none 12', justify='left', anchor='w')
-                    featuresLabel.pack(pady=5)               
-    
+  
 #ROI IMAGE WINDOW (This is here because the code is already unorganized) Fuck Monoliths
     def showROIWindow(self):
         print("I AM STEVE")
@@ -808,6 +679,8 @@ class CropApp:
         self.displayROIinROIWindowCanvas(roiPath, ROIArea, ROICanvasHeight, ROICanvasWidth)
         self.displayHistogramInROIWindow(roiPath, ROICanvasWidth, ROICanvasHeight)
         self.displayNTInROIWindow(roiPath, ROIDisplay)
+        self.displayGLCMPropertiesInROIWindow(roiPath, ROIDisplay)
+        self.displayRadialGLCMInROIWindow(roiPath, self.histogramFrame)
         
     def displayROIinROIWindowCanvas(self, roiPath, ROIArea, ROICanvasHeight, ROICanvasWidth):
         ROIArea.delete("all")
@@ -872,6 +745,59 @@ class CropApp:
         hist_widget.pack(fill=tk.BOTH, expand=False, padx=10, pady=10)
         hist_widget.config(width=histWidth*1.5, height=histHeight)
 
+    def displayRadialGLCMInROIWindow(self, roiPath, histogramFrame, distances=[1, 2, 4, 8]):
+            # Load the ROI image
+        roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
+
+        # Create a frame for displaying radial GLCM properties under the histogram
+        glcmFrame = Frame(histogramFrame)
+        glcmFrame.pack(pady=10)
+        
+        radialLabel = Label(glcmFrame, text="GLCM RADIAL", font='none 14 bold', justify='center')
+        radialLabel.pack(pady=5)
+
+        # Create two sub-frames for two columns of distances
+        leftFrame = Frame(glcmFrame)
+        leftFrame.pack(side='left', padx=20)
+
+        rightFrame = Frame(glcmFrame)
+        rightFrame.pack(side='left', padx=20)
+
+        half = len(distances) // 2
+
+        for i, distance in enumerate(distances):
+            # Calculate GLCM matrix for each distance
+            glcm = graycomatrix(roiImage, distances=[distance], angles=[0], levels=256, symmetric=True, normed=True)
+
+            # Calculate GLCM properties
+            contrast = greycoprops(glcm, 'contrast')[0, 0]
+            dissimilarity = greycoprops(glcm, 'dissimilarity')[0, 0]
+            homogeneity = greycoprops(glcm, 'homogeneity')[0, 0]
+            energy = greycoprops(glcm, 'energy')[0, 0]
+            correlation = greycoprops(glcm, 'correlation')[0, 0]
+            entropy = self.calculo_entropia_glcm(glcm[:, :, 0, 0])
+
+            # Format the GLCM properties
+            glcmText = (
+                f"Distance {distance} px:\n"
+                f"  Contrast: {contrast:.4f}\n"
+                f"  Dissimilarity: {dissimilarity:.4f}\n"
+                f"  Homogeneity: {homogeneity:.4f}\n"
+                f"  Energy: {energy:.4f}\n"
+                f"  Correlation: {correlation:.4f}\n"
+                f"  Entropy: {entropy:.4f}\n"
+            )
+
+            # Distribute the properties into two columns
+            if i < half:
+                # Left column
+                featuresLabel = Label(leftFrame, text=glcmText, font='none 12', justify='left', anchor='w')
+                featuresLabel.pack(pady=5)
+            else:
+                # Right column
+                featuresLabel = Label(rightFrame, text=glcmText, font='none 12', justify='left', anchor='w')
+                featuresLabel.pack(pady=5)
+
     def displayNTInROIWindow(self, roiPath, ROIDisplay, matriculas=[766639, 772198, 1378247]):
         # Calcula NT
         NT = sum(matriculas) % 4
@@ -897,7 +823,10 @@ class CropApp:
 
 
         # Add the NT descriptor as a separate Label below the canvas
-        featuresText = f"{descriptor_name}: {descriptor_value:.4f}"
+        featuresText = (
+            "NT DESCRIPTOR\n"
+            f"{descriptor_name}: {descriptor_value:.4f}"
+        )
 
         # Remove any existing labels under the canvas before adding the new one
         for widget in ROIDisplay.winfo_children():
@@ -908,7 +837,33 @@ class CropApp:
         descriptorLabel = Label(ROIDisplay, text=featuresText, font='none 12', justify='center')
         descriptorLabel.pack(pady=10)  # Padding to add space between the canvas and the label
 
+    def displayGLCMPropertiesInROIWindow(self, roiPath, ROIDisplay):
+        # Load the ROI image
+        roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
 
+        # Cria GLCM matrix
+        glcm = graycomatrix(roiImage, distances=[1], angles=[0], levels=256, symmetric=True, normed=True)
+
+        # GLCM properties
+        contrast = greycoprops(glcm, 'contrast')[0, 0]
+        dissimilarity = greycoprops(glcm, 'dissimilarity')[0, 0]
+        homogeneity = greycoprops(glcm, 'homogeneity')[0, 0]
+        energy = greycoprops(glcm, 'energy')[0, 0]
+        correlation = greycoprops(glcm, 'correlation')[0, 0]
+
+        # Format the GLCM properties
+        glcmText = (
+            "GLCM & TEXTURE\n"
+            f"Contrast: {contrast:.4f}\n"
+            f"Dissimilarity: {dissimilarity:.4f}\n"
+            f"Homogeneity: {homogeneity:.4f}\n"
+            f"Energy: {energy:.4f}\n"
+            f"Correlation: {correlation:.4f}"
+        )
+
+        # Create a label for the GLCM properties and pack it below the canvas
+        glcmLabel = Label(ROIDisplay, text=glcmText, font='none 12', justify='center')
+        glcmLabel.pack(pady=10)
 #Z O O OMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM 
     
     def zoomInROI(self):
