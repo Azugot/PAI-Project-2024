@@ -105,18 +105,18 @@ class CropApp:
 
     #M OSTRAR BOTOES DPS DE ENVIAR A IMAGEM
     def showAdditionalButtons(self):
-        self.showArea.grid(row=3, column=0, sticky="n")
-        self.chooseRoi.grid(row=4, column=0, sticky="n")
+        self.showArea.grid(row=5, column=0, sticky="n")
+        self.chooseRoi.grid(row=3, column=0, sticky="n")
         self.toggleZoomButton.grid(row=4, column=1, sticky="n", padx=5)
-        self.saveSelectedROI.grid(row=5, column=0, sticky="n")
-        self.previousPatientImage.grid(row=11, column=0, sticky="n", padx=5)
-        self.previousPatient.grid(row=12, column=0, sticky="n", padx=5)
-        self.nextPatientImage.grid(row=11, column=1, sticky="n", padx=5)
-        self.nextPatient.grid(row=12, column=1, sticky="n", padx=5)
-        self.resetZoomButton.grid(row=10, column=0, sticky="n")
-        self.zoomInButton.grid(row=14, column=2, sticky="n", padx=5)
-        self.zoomOutButton.grid(row=15, column=2, sticky="n", padx=5)
-        self.chooseRoi.grid(row=4, column=0, sticky="n", padx=10, pady=10)
+        self.saveSelectedROI.grid(row=4, column=0, sticky="n")
+        self.previousPatientImage.grid(row=2, column=2, sticky="n", padx=5)
+        self.previousPatient.grid(row=5, column=2, sticky="n", padx=5)
+        self.nextPatientImage.grid(row=1, column=2, sticky="n", padx=5)
+        self.nextPatient.grid(row=4, column=2, sticky="n", padx=5)
+        self.resetZoomButton.grid(row=7, column=1, sticky="n")
+        self.zoomInButton.grid(row=5, column=1, sticky="n", padx=5)
+        self.zoomOutButton.grid(row=6, column=1, sticky="n", padx=5)
+        self.chooseRoi.grid(row=3, column=0, sticky="n", padx=10, pady=10)
         self.resetROISelection.grid(row=6, column=0, sticky="n", padx=10, pady=10)
         
     def readImage(self):
@@ -650,7 +650,7 @@ class CropApp:
             for j in range(glcm_normalized.shape[1]):
                 if (glcm_normalized[i, j] > 0):  # Evitar log(0)
                     entropy -= glcm_normalized[i, j] * log(glcm_normalized[i, j])
-        return entropy 
+        return entropy
   
 #ROI IMAGE WINDOW (This is here because the code is already unorganized) Fuck Monoliths
     def showROIWindow(self):
@@ -784,26 +784,35 @@ class CropApp:
 
         half = len(distances) // 2
 
+        angles = [0, np.pi/4, np.pi/2, 3*np.pi/4]  # Ângulos padrão: 0°, 45°, 90°, 135°
+        angles = angles
+
         for i, distance in enumerate(distances):
             # Calculate GLCM matrix for each distance
-            glcm = graycomatrix(roiImage, distances=[distance], angles=[0], levels=256, symmetric=True, normed=True)
+            glcm = graycomatrix(roiImage, distances=[distance], angles=angles, levels=256, symmetric=True, normed=True)
 
             # Calculate GLCM properties
-            contrast = greycoprops(glcm, 'contrast')[0, 0]
-            dissimilarity = greycoprops(glcm, 'dissimilarity')[0, 0]
-            homogeneity = greycoprops(glcm, 'homogeneity')[0, 0]
-            energy = greycoprops(glcm, 'energy')[0, 0]
-            correlation = greycoprops(glcm, 'correlation')[0, 0]
+            contrast = greycoprops(glcm, 'contrast')#[0, 0]
+            dissimilarity = greycoprops(glcm, 'dissimilarity')#[0, 0]
+            homogeneity = greycoprops(glcm, 'homogeneity')#[0, 0]
+            energy = greycoprops(glcm, 'energy')#[0, 0]
+            correlation = greycoprops(glcm, 'correlation')#[0, 0]
             entropy = self.calculo_entropia_glcm(glcm[:, :, 0, 0])
 
             # Format the GLCM properties
             glcmText = (
-                f"Distance {distance} px:\n"
-                f"  Contrast: {contrast:.4f}\n"
-                f"  Dissimilarity: {dissimilarity:.4f}\n"
-                f"  Homogeneity: {homogeneity:.4f}\n"
-                f"  Energy: {energy:.4f}\n"
-                f"  Correlation: {correlation:.4f}\n"
+                #f"Distance {distance} px:\n"
+                f"  Contrast: {contrast[:, i].mean():.4f}\n"
+                #f"  Contrast: {contrast:.4f}\n"
+                f"  Dissimilarity: {dissimilarity[:, i].mean():.4f}\n"
+                #f"  Dissimilarity: {dissimilarity:.4f}\n"
+                f"  Homogeneidade: {homogeneity[:, i].mean():.4f}\n"
+                #f"  Homogeneity: {homogeneity:.4f}\n"
+                f"  Energy: {energy[:, i].mean():.4f}\n"
+                #f"  Energy: {energy:.4f}\n"
+                f"  Correlation: {correlation[:, i].mean():.4f}\n"
+                #f"  Correlation: {correlation:.4f}\n"
+                #f"  Entropy: {entropy[:, i].mean():.4f}\n"
                 f"  Entropy: {entropy:.4f}\n"
             )
 
