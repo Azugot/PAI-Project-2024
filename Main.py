@@ -57,8 +57,8 @@ class CropApp:
         self.lasX, self.lasY = 0, 0
 
         self.app = root
-        self.app.title('CROP')
-        self.app.geometry('700x700')
+        self.app.title('Trabalho PAI')
+        self.app.geometry('1300x1000')
 
         # Frame para a imagem
         self.imageFrame = tk.Frame(self.app, width=uiWidth, height=uiHeight, bg='#C8C8C8')
