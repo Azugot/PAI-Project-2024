@@ -23,6 +23,9 @@ from math import log
 import pandas as pd
 import csv
 
+global_glcm_properties = []
+global_sfm_properties = {}
+
 class CropApp:
     def __init__(self, root, savePath, uiWidth=434, uiHeight=636):
         #Variables for the ROI Window(Yes a separate window, please do not touch thank you xoxo)
@@ -286,47 +289,34 @@ class CropApp:
         return [f for f in os.listdir(self.savePath) if (os.path.isfile(os.path.join(self.savePath, f)))]
 
     def saveROI(self):
-        if (self.roi1 and self.roi2):  # verifica se as duas rois foram selecionadas pq so pode salvar depois das duas marcadas
-            liverROI = self.acquireROI(self.roi1)  # Pega fígado
-            kidneyROI = self.acquireROI(self.roi2)  # Pega rim
+        if (self.roi1 and self.roi2):
+            liverROI = self.acquireROI(self.roi1)
+            kidneyROI = self.acquireROI(self.roi2)
 
-            # Converte as rois para arrays NumPy em escala de cinza
-            liverArray = np.array(liverROI.convert("L"))  # faz a conversão dos tons de cinza
+            liverArray = np.array(liverROI.convert("L"))
             kidneyArray = np.array(kidneyROI.convert("L"))
 
-            # faz a média dos tons de cinza
             liverMean = np.mean(liverArray)
             kidneyMean = np.mean(kidneyArray)
 
             HI = liverMean / kidneyMean
-
-            # ajusta os tons de cinza da ROI do fígado com base no HI
             liverArrayAdjusted = np.clip(np.round(liverArray * HI), 0, 255).astype(np.uint8)
-
-            # Converte de volta para imagem PIL
             liverROIAdjusted = Image.fromarray(liverArrayAdjusted)
 
-            # Salva a ROI ajustada do fígado
             os.makedirs(self.savePath, exist_ok=True)
             file_name = os.path.join(self.savePath, f"ROI_{self.numPatient:02}_{self.imgPatient}.png")
             liverROIAdjusted.save(file_name, "PNG")
             print(f"ROI do fígado salva em: {file_name}")
 
-            # Definindo a classe dos pacientes (0-16 saudáveis, resto com esteatose)
+            # Definindo a classe dos pacientes (0-16 saudáveis, o restante com esteatose)
             patient_class = "Healthy" if self.numPatient <= 16 else "Steatosis"
-
-            # Calcula o índice correto baseado no paciente e na imagem
-            row_index = self.numPatient * 10 + self.imgPatient  # Cada paciente tem até 10 imagens
-
-            # Caminho para o CSV
             csv_file = os.path.join(self.savePath, 'rois_data.csv')
 
-            # Inicializa uma lista com 550 linhas em branco se o arquivo não existir
-            if (not os.path.exists(csv_file)):
+            # Inicializa o arquivo CSV principal, se necessário
+            if not os.path.exists(csv_file):
                 with open(csv_file, mode='w', newline='') as file:
                     writer = csv.writer(file)
                     writer.writerow(['Arquivo', 'Classificação', 'ROI Fígado ', 'ROI Rim', 'HI'])
-                    # Preenche 550 linhas com dados vazios
                     for _ in range(550):
                         writer.writerow(["", "", "", "", ""])
 
@@ -335,22 +325,50 @@ class CropApp:
                 rows = list(csv.reader(file))
 
             # Atualiza a linha específica com as informações da ROI
-            rows[row_index + 1] = [f"ROI_{self.numPatient:02}_{self.imgPatient}.png", patient_class, self.roi1[:2], self.roi2[:2], round(HI, 4)]
+            row_index = self.numPatient * 10 + self.imgPatient
+            rows[row_index + 1] = [f"ROI_{self.numPatient:02}_{self.imgPatient}.png", patient_class, self.roi1[:2], self.roi2[:2], f"{HI:.4f}"]
 
-            # Escreve de volta no CSV as linhas atualizadas
+            # Salva as linhas atualizadas no CSV
             with open(csv_file, mode='w', newline='') as file:
                 writer = csv.writer(file)
                 writer.writerows(rows)
 
             print(f"Informações da ROI salvas no arquivo CSV na linha {row_index + 1}.")
 
+            # Caminho para o CSV das informações GLCM e SFM
+            glcm_sfm_csv = os.path.join(self.savePath, 'glcm_sfm_data.csv')
+
+            # Inicializa o arquivo CSV de GLCM e SFM, se necessário
+            if not os.path.exists(glcm_sfm_csv):
+                with open(glcm_sfm_csv, mode='w', newline='') as file:
+                    writer = csv.writer(file)
+                    writer.writerow([
+                        'Arquivo', 'Classificação', 'Distance', 'Angle', 'Contrast', 'Dissimilarity',
+                        'Homogeneity', 'Energy', 'Correlation', 'Entropy', 'Coarseness', 'Periodicity', 'Roughness'
+                    ])
+
+            # Chama as funções para calcular e armazenar as propriedades GLCM e SFM nas variáveis globais, sem exibir a interface gráfica
+            self.displayRadialGLCMInROIWindow(file_name, histogramFrame=None, distances=[1, 2, 4, 8])
+            self.displaySFMPropertiesInROIWindow(file_name, ROIDisplay=None)
+
+            # Acessa as variáveis globais para gravar no CSV
+            with open(glcm_sfm_csv, mode='a', newline='') as file:
+                writer = csv.writer(file)
+                for glcm_property in global_glcm_properties:
+                    writer.writerow([
+                        f"ROI_{self.numPatient:02}_{self.imgPatient}.png", patient_class,
+                        glcm_property['distance'], glcm_property['angle'],
+                        f"{glcm_property['contrast']:.4f}", f"{glcm_property['dissimilarity']:.4f}",
+                        f"{glcm_property['homogeneity']:.4f}", f"{glcm_property['energy']:.4f}",
+                        f"{glcm_property['correlation']:.4f}", f"{glcm_property['entropy']:.4f}",
+                        f"{global_sfm_properties.get('coarseness', 0):.4f}",
+                        f"{global_sfm_properties.get('periodicity', 0):.4f}",
+                        f"{global_sfm_properties.get('roughness', 0):.4f}"
+                    ])
+
             # Limpa as ROIs após salvar
             self.roi1 = None
             self.roi2 = None
-            self.areaROI1 = None
-            self.areaROI2 = None
-        else:
-            print("Marque as ROIs fígado e rim antes de salvar.")
 
     def deleteROIarea(self):
         # Verifica se existe uma área de região de interesse definida
@@ -766,111 +784,126 @@ class CropApp:
         hist_widget.pack(fill=tk.BOTH, expand=False, padx=10, pady=10)
         hist_widget.config(width=histWidth*1.5, height=histHeight)
 
-    def displayRadialGLCMInROIWindow(self, roiPath, histogramFrame, distances=[1, 2, 4, 8]):
-        # Carrega a imagem da ROI (Região de Interesse) em preto e branco
+    def displayRadialGLCMInROIWindow(self, roiPath, histogramFrame=None, distances=[1, 2, 4, 8]):
+        global global_glcm_properties
+        global_glcm_properties = []
+
+        # Carrega a imagem da ROI em escala de cinza
         roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
 
-        # Cria um frame rolável para mostrar as propriedades do GLCM
-        glcmFrame = self.createScrollableCanvas(histogramFrame)
-        
-        # Adiciona um rótulo ao topo do frame rolável
-        radialLabel = Label(glcmFrame, text="GLCM RADIAL", font='none 14 bold', justify='center')
-        radialLabel.pack(pady=5)
-
-        # Cria duas áreas (colunas) para organizar as distâncias
-        leftFrame = Frame(glcmFrame)
-        leftFrame.pack(side='left', padx=20)
-
-        rightFrame = Frame(glcmFrame)
-        rightFrame.pack(side='left', padx=20)
-
-        # Define quantas distâncias vão para cada coluna
-        half = len(distances) // 2
-
-        # Define os ângulos para analisar as texturas em direções diferentes
+        # Define os ângulos para análise de textura
         angles = [0, np.pi/4, np.pi/2, 3*np.pi/4]
-        # Calcula a matriz GLCM para todas as distâncias e ângulos ao mesmo tempo
+        # Calcula a matriz GLCM para todas as distâncias e ângulos
         glcm = graycomatrix(roiImage, distances=distances, angles=angles, symmetric=True, normed=True)
 
-        # Para cada distância e cada ângulo, pega as propriedades de textura
+        # Se histogramFrame for fornecido, cria o layout da interface gráfica uma vez
+        if histogramFrame:
+            glcmFrame = self.createScrollableCanvas(histogramFrame)
+            radialLabel = Label(glcmFrame, text="GLCM RADIAL", font='none 14 bold', justify='center')
+            radialLabel.pack(pady=5)
+
+            # Cria colunas para organizar a exibição
+            leftFrame = Frame(glcmFrame)
+            leftFrame.pack(side='left', padx=20)
+            rightFrame = Frame(glcmFrame)
+            rightFrame.pack(side='left', padx=20)
+
+        # Para cada distância e ângulo, calcula as propriedades de textura
         for i, distance in enumerate(distances):
             for j, angle in enumerate(angles):
-                # Pega as propriedades para a distância e ângulo específicos
                 contrast = greycoprops(glcm, 'contrast')[i, j]
                 dissimilarity = greycoprops(glcm, 'dissimilarity')[i, j]
                 homogeneity = greycoprops(glcm, 'homogeneity')[i, j]
                 energy = greycoprops(glcm, 'energy')[i, j]
                 correlation = greycoprops(glcm, 'correlation')[i, j]
-
-                # Calcula a entropia para a mesma distância e ângulo
                 entropy = self.calculo_entropia_glcm(glcm[:, :, i, j])
 
-                # Cria o texto que mostra os valores das propriedades
-                featuresText = (
-                    f"Distance {distance} px, Angle {np.degrees(angle):.0f}°:\n"
-                    f"  Contrast: {contrast:.4f}\n"
-                    f"  Dissimilarity: {dissimilarity:.4f}\n"
-                    f"  Homogeneity: {homogeneity:.4f}\n"
-                    f"  Energy: {energy:.4f}\n"
-                    f"  Correlation: {correlation:.4f}\n"
-                    f"  Entropy: {entropy:.4f}\n"
+                # Armazena as propriedades na variável global
+                global_glcm_properties.append({
+                    'distance': distance,
+                    'angle': np.degrees(angle),
+                    'contrast': contrast,
+                    'dissimilarity': dissimilarity,
+                    'homogeneity': homogeneity,
+                    'energy': energy,
+                    'correlation': correlation,
+                    'entropy': entropy
+                })
+
+                # Exibe todas as propriedades na interface gráfica
+                if histogramFrame:
+                    # Alterna entre as colunas para cada par de distância e ângulo
+                    frame = leftFrame if (i * len(angles) + j) % 2 == 0 else rightFrame
+                    featuresText = (
+                        f"Distance {distance} px, Angle {np.degrees(angle):.0f}°:\n"
+                        f"  Contrast: {contrast:.4f}\n"
+                        f"  Dissimilarity: {dissimilarity:.4f}\n"
+                        f"  Homogeneity: {homogeneity:.4f}\n"
+                        f"  Energy: {energy:.4f}\n"
+                        f"  Correlation: {correlation:.4f}\n"
+                        f"  Entropy: {entropy:.4f}\n"
+                    )
+                    featuresLabel = Label(frame, text=featuresText, font='none 12', justify='left', anchor='w')
+                    featuresLabel.pack(pady=5)
+
+        print(f"GLCM properties stored in global variable: {global_glcm_properties}")
+
+    def displaySFMPropertiesInROIWindow(self, roiPath, ROIDisplay=None):
+            global global_sfm_properties
+            global_sfm_properties = {}
+
+            # Carrega a imagem da ROI
+            roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
+
+            # Coarseness - usando filtro de média e variância local
+            kernel_size = 3
+            local_mean = cv2.blur(roiImage, (kernel_size, kernel_size))
+            local_var = cv2.blur((roiImage - local_mean)**2, (kernel_size, kernel_size))
+            coarseness = np.mean(local_var)
+
+            # Contrast - calculado com a GLCM
+            glcm = graycomatrix(roiImage, distances=[1], angles=[0], levels=256, symmetric=True, normed=True)
+            contrast = greycoprops(glcm, 'contrast')[0, 0]
+
+            # Periodicity - usando transformada de Fourier
+            f_transform = np.fft.fft2(roiImage)
+            f_transform_shifted = np.fft.fftshift(f_transform)
+            magnitude_spectrum = np.abs(f_transform_shifted)
+            periodicity = np.mean(magnitude_spectrum)
+
+            # Roughness - média dos gradientes locais
+            grad_x = cv2.Sobel(roiImage, cv2.CV_64F, 1, 0, ksize=3)
+            grad_y = cv2.Sobel(roiImage, cv2.CV_64F, 0, 1, ksize=3)
+            roughness = np.mean(np.sqrt(grad_x**2 + grad_y**2))
+
+            # Armazena as propriedades na variável global
+            global_sfm_properties = {
+                'coarseness': coarseness,
+                'contrast': contrast,
+                'periodicity': periodicity,
+                'roughness': roughness
+            }
+
+            # Somente exibe na interface gráfica se ROIDisplay estiver definido
+            if ROIDisplay:
+                sfmText = (
+                    f"Coarseness: {coarseness:.4f}\n"
+                    f"Contrast: {contrast:.4f}\n"
+                    f"Periodicity: {periodicity:.4f}\n"
+                    f"Roughness: {roughness:.4f}"
                 )
 
-                # Coloca o texto em uma das duas colunas
-                if i < half:
-                    # Se for das primeiras distâncias, vai na coluna da esquerda
-                    featuresLabel = Label(leftFrame, text=featuresText, font='none 12', justify='left', anchor='w')
-                    featuresLabel.pack(pady=5)
-                else:
-                    # Senão, vai na coluna da direita
-                    featuresLabel = Label(rightFrame, text=featuresText, font='none 12', justify='left', anchor='w')
-                    featuresLabel.pack(pady=5)
+                if hasattr(self, 'sfmLabel') and self.sfmLabel.winfo_exists():
+                    self.sfmLabel.destroy()
+                if hasattr(self, 'featuresLabel') and self.featuresLabel.winfo_exists():
+                    self.featuresLabel.destroy()
 
-    def displaySFMPropertiesInROIWindow(self, roiPath, ROIDisplay):
-        # Carrega a imagem da ROI
-        roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
+                self.sfmLabel = Label(ROIDisplay, text="SMF", font='none 12 bold', justify='center')
+                self.sfmLabel.pack(pady=5)
+                self.featuresLabel = Label(ROIDisplay, text=sfmText, font='none 12', justify='center')
+                self.featuresLabel.pack(pady=10)
 
-        # Coarseness - usando filtro de média e variância local
-        kernel_size = 3
-        local_mean = cv2.blur(roiImage, (kernel_size, kernel_size))
-        local_var = cv2.blur((roiImage - local_mean)**2, (kernel_size, kernel_size))
-        coarseness = np.mean(local_var)
-
-        # Contrast - calculado com a GLCM
-        glcm = graycomatrix(roiImage, distances=[1], angles=[0], levels=256, symmetric=True, normed=True)
-        contrast = greycoprops(glcm, 'contrast')[0, 0]
-
-        # Periodicity - usando transformada de Fourier
-        f_transform = np.fft.fft2(roiImage)
-        f_transform_shifted = np.fft.fftshift(f_transform)
-        magnitude_spectrum = np.abs(f_transform_shifted)
-        periodicity = np.mean(magnitude_spectrum)
-
-        # Roughness - média dos gradientes locais
-        grad_x = cv2.Sobel(roiImage, cv2.CV_64F, 1, 0, ksize=3)
-        grad_y = cv2.Sobel(roiImage, cv2.CV_64F, 0, 1, ksize=3)
-        roughness = np.mean(np.sqrt(grad_x**2 + grad_y**2))
-
-        # Formatação das propriedades SFM
-        sfmText = (
-            f"Coarseness: {coarseness:.4f}\n"
-            f"Contrast: {contrast:.4f}\n"
-            f"Periodicity: {periodicity:.4f}\n"
-            f"Roughness: {roughness:.4f}"
-        )
-
-        # Verifica e remove rótulos anteriores, se existirem
-        if hasattr(self, 'sfmLabel') and self.sfmLabel.winfo_exists():
-            self.sfmLabel.destroy()
-        if hasattr(self, 'featuresLabel') and self.featuresLabel.winfo_exists():
-            self.featuresLabel.destroy()
-
-        # Cria um label para as propriedades da SFM e exibe abaixo do canvas
-        self.sfmLabel = Label(ROIDisplay, text="SMF PROPERTIES", font='none 12 bold', justify='center')
-        self.sfmLabel.pack(pady=5)
-        self.featuresLabel = Label(ROIDisplay, text=sfmText, font='none 12', justify='center')
-        self.featuresLabel.pack(pady=10)
-
+            print(f"SFM properties stored in global variable: {global_sfm_properties}")
 
 # ZOOM
     def zoomInROI(self):
