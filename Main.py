@@ -688,11 +688,9 @@ class CropApp:
     def displayItemsInROICanvas(self, roiPath, ROIArea, ROICanvasHeight, ROICanvasWidth, ROIDisplay):
         self.displayROIinROIWindowCanvas(roiPath, ROIArea, ROICanvasHeight, ROICanvasWidth)
         self.displayHistogramInROIWindow(roiPath, ROICanvasWidth, ROICanvasHeight)
-        self.displayNTInROIWindow(roiPath, ROIDisplay)
-        self.displayGLCMPropertiesInROIWindow(roiPath, ROIDisplay)
         self.displayRadialGLCMInROIWindow(roiPath, self.histogramFrame)
         self.displaySFMPropertiesInROIWindow(roiPath, ROIDisplay)
-        
+
     def displayROIinROIWindowCanvas(self, roiPath, ROIArea, ROICanvasHeight, ROICanvasWidth):
         ROIArea.delete("all")
         print("ROI: " + roiPath)
@@ -761,57 +759,65 @@ class CropApp:
 
 
     def displayRadialGLCMInROIWindow(self, roiPath, histogramFrame, distances=[1, 2, 4, 8]):
-        # Load the ROI image
+        # Carrega a imagem da ROI (Região de Interesse) em preto e branco
         roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
 
-        # Create a frame for displaying radial GLCM properties under the histogram
-        glcmFrame = Frame(histogramFrame)
-        glcmFrame.pack(pady=10)
+        # Cria um frame rolável para mostrar as propriedades do GLCM
+        glcmFrame = self.createScrollableCanvas(histogramFrame)
         
+        # Adiciona um rótulo ao topo do frame rolável
         radialLabel = Label(glcmFrame, text="GLCM RADIAL", font='none 14 bold', justify='center')
         radialLabel.pack(pady=5)
 
-        # Create two sub-frames for two columns of distances
+        # Cria duas áreas (colunas) para organizar as distâncias
         leftFrame = Frame(glcmFrame)
         leftFrame.pack(side='left', padx=20)
 
         rightFrame = Frame(glcmFrame)
         rightFrame.pack(side='left', padx=20)
 
+        # Define quantas distâncias vão para cada coluna
         half = len(distances) // 2
 
+        # Define os ângulos para analisar as texturas em direções diferentes
+        angles = [0, np.pi/4, np.pi/2, 3*np.pi/4]
+        # Calcula a matriz GLCM para todas as distâncias e ângulos ao mesmo tempo
+        glcm = graycomatrix(roiImage, distances=distances, angles=angles, symmetric=True, normed=True)
+
+        # Para cada distância e cada ângulo, pega as propriedades de textura
         for i, distance in enumerate(distances):
-            # Calculate GLCM matrix for each distance
-            glcm = graycomatrix(roiImage, distances=[distance], angles=[0], levels=256, symmetric=True, normed=True)
+            for j, angle in enumerate(angles):
+                # Pega as propriedades para a distância e ângulo específicos
+                contrast = greycoprops(glcm, 'contrast')[i, j]
+                dissimilarity = greycoprops(glcm, 'dissimilarity')[i, j]
+                homogeneity = greycoprops(glcm, 'homogeneity')[i, j]
+                energy = greycoprops(glcm, 'energy')[i, j]
+                correlation = greycoprops(glcm, 'correlation')[i, j]
 
-            # Calculate GLCM properties
-            contrast = greycoprops(glcm, 'contrast')[0, 0]
-            dissimilarity = greycoprops(glcm, 'dissimilarity')[0, 0]
-            homogeneity = greycoprops(glcm, 'homogeneity')[0, 0]
-            energy = greycoprops(glcm, 'energy')[0, 0]
-            correlation = greycoprops(glcm, 'correlation')[0, 0]
-            entropy = self.calculo_entropia_glcm(glcm[:, :, 0, 0])
+                # Calcula a entropia para a mesma distância e ângulo
+                entropy = self.calculo_entropia_glcm(glcm[:, :, i, j])
 
-            # Format the GLCM properties
-            glcmText = (
-                f"Distance {distance} px:\n"
-                f"  Contrast: {contrast:.4f}\n"
-                f"  Dissimilarity: {dissimilarity:.4f}\n"
-                f"  Homogeneity: {homogeneity:.4f}\n"
-                f"  Energy: {energy:.4f}\n"
-                f"  Correlation: {correlation:.4f}\n"
-                f"  Entropy: {entropy:.4f}\n"
-            )
+                # Cria o texto que mostra os valores das propriedades
+                featuresText = (
+                    f"Distance {distance} px, Angle {np.degrees(angle):.0f}°:\n"
+                    f"  Contrast: {contrast:.4f}\n"
+                    f"  Dissimilarity: {dissimilarity:.4f}\n"
+                    f"  Homogeneity: {homogeneity:.4f}\n"
+                    f"  Energy: {energy:.4f}\n"
+                    f"  Correlation: {correlation:.4f}\n"
+                    f"  Entropy: {entropy:.4f}\n"
+                )
 
-            # Distribute the properties into two columns
-            if (i < half):
-                # Left column
-                featuresLabel = Label(leftFrame, text=glcmText, font='none 12', justify='left', anchor='w')
-                featuresLabel.pack(pady=5)
-            else:
-                # Right column
-                featuresLabel = Label(rightFrame, text=glcmText, font='none 12', justify='left', anchor='w')
-                featuresLabel.pack(pady=5)
+                # Coloca o texto em uma das duas colunas
+                if i < half:
+                    # Se for das primeiras distâncias, vai na coluna da esquerda
+                    featuresLabel = Label(leftFrame, text=featuresText, font='none 12', justify='left', anchor='w')
+                    featuresLabel.pack(pady=5)
+                else:
+                    # Senão, vai na coluna da direita
+                    featuresLabel = Label(rightFrame, text=featuresText, font='none 12', justify='left', anchor='w')
+                    featuresLabel.pack(pady=5)
+
 
     def displayNTInROIWindow(self, matriculas=[766639, 772198, 1378247]):
         # Calcula NT
