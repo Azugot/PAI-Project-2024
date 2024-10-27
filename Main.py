@@ -659,15 +659,16 @@ class CropApp:
             if (self.imgPatient >= 0 and self.imgPatient <= 9):
                 self.navigateThroughMatFile(self.numPatient, self.imgPatient)
 
-# ENTROPIA
+    # ENTROPIA
     def calculo_entropia_glcm(self, glcm):
-        glcm_normalized = glcm / np.sum(glcm)
+        glcm_normalized = glcm / np.sum(glcm)  # normaliza a GLCM
         entropy = 0
         for i in range(glcm_normalized.shape[0]):
             for j in range(glcm_normalized.shape[1]):
-                if (glcm_normalized[i, j] > 0):  # Evitar log(0)
-                    entropy -= glcm_normalized[i, j] * log(glcm_normalized[i, j])
+                if glcm_normalized[i, j] > 0:  # para evitar log(0)
+                    entropy -= glcm_normalized[i, j] * np.log2(glcm_normalized[i, j])
         return entropy
+
   
 # ROI IMAGE WINDOW (This is here because the code is already unorganized)
     def showROIWindow(self):
