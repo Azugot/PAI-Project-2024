@@ -183,142 +183,93 @@ class CropApp:
             self.showHistogram(matImage)
 
     def showHistogram(self, matImage):
+        #Caso a imagem for colorida passa ela para cinza
         if (len(matImage.shape) == 3): 
             matImage = cv2.cvtColor(matImage, cv2.COLOR_BGR2GRAY)
 
+        #Pega a altura e a largura da imagem e o total de pixels
         height, width = matImage.shape
         total_pixels = height * width
 
+        # inicialmente o histograma tem 256 posições com valores iniciais zero
         hist = np.zeros(256, dtype=int)
+        
+        # Percorre cada pixel e incrementando a posição
         for i in range(height):
             for j in range(width):
                 intensity_value = matImage[i, j]
                 hist[intensity_value] += 1
 
-        assert sum(hist) == total_pixels, "A soma do histograma deve ser igual ao número total de pixels"
+        #Apenas validade se deu o total de pixeis
+        assert sum(hist) == total_pixels
 
+        # Cria o gráfico para mostrar o histograma
         fig, ax = plt.subplots(figsize=(4, 2.5))
         ax.plot(hist, color='black')
         ax.set_title(f"Histogram - Paciente {self.numPatient}, Imagem {self.imgPatient}")
-        ax.set_xlim([0, 255])
-        ax.set_xlabel('Pixel Intensity')
+        ax.set_xlim([0, 255])  # O eixo x é intensidade dos pixels
+        ax.set_xlabel('Pixel Intensity') 
         ax.set_ylabel('Number of Pixels')
 
+        # Define o limite superior do eixo y como 110% do valor do percentil 95 do histograma para visualização melhorada
         max_value = np.percentile(hist, 95)
         ax.set_ylim([0, max_value * 1.1])
 
+        # Salva a imagem do histograma em formato png
         buf = io.BytesIO()
         fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0.1)
         buf.seek(0)
 
+        #Pega suas dimensões do histogrma
         hist_image = Image.open(buf)
         hist_width, hist_height = hist_image.size
 
+        # Pega as dimensoes do Canvas para exibir o histograma
         self.histCanvas.config(width=hist_width, height=hist_height)
 
+        # Converte a imagem para o formato ImageTk para exibir no canvas
         self.hist_img_tk = ImageTk.PhotoImage(hist_image)
         self.histCanvas.create_image(0, 0, image=self.hist_img_tk, anchor='nw')
 
+        # Fecha o buffer e a figura
         buf.close()
         plt.close(fig)
 
-    def navigateThroughMatFile(self, numPatient,imgPatient):
+
+    def navigateThroughMatFile(self, numPatient, imgPatient):
+        # Olha se o arquivo .mat esta aberto e o caminho é válido
         if (self.matFileIsOpen and self.path):
-            # Load matrix into data variable
+            # Armazena a matriz do arquivo .mat
             data = scipy.io.loadmat(self.path)
 
-            # Get the data array
+            # Extrai o array de dados da variável 'data'
             dataArray = data['data'] 
 
-            # Get the first input
+            # Pega a primeira entrada referente ao paciente
             input = dataArray[0, numPatient]
             
-            # Get the images from the input
+            # Extrai as imagens dessa entrada
             matImagens = input['images']
             matImage = matImagens[imgPatient]
 
-            # Convert the image to a format usable by PIL
+            # Converte a imagem para um formato
             matImage = np.array(matImage)
 
-            # Convert the NumPy array to an Image
+            # Converte o array NumPy (lista de numeros mais rapidas)
             pilImage = Image.fromarray(matImage)
 
-            # Resize if necessary
+            # Redimensiona a imagem se necessário
             pilImage = pilImage.resize((self.uiWidth, self.uiHeight), Image.LANCZOS)
 
-            # Update the image references
+            # Atualiza as referências de imagem
             self.image = ImageTk.PhotoImage(pilImage)
             self.imageForMaskMultiplication = pilImage
 
-            # Display the image in the Canvas widget
+            # Exibe a imagem no Canvas
             self.imageArea.create_image(0, 0, image=self.image, anchor='nw')
+
+            # Exibe o histograma da imagem no Canvas
             self.showHistogram(matImage)
-
-#Z O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O 0 O O O O O O O O O O O MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM 
-    def toggleZoom(self):
-        if (self.zoomEnabled):
-            #DO NOT TOUCH THIS PART ===============
-            self.toggleZoomButton.config(text="ENABLE ZOOM")
-            self.zoomEnabled = False
-            self.imageArea.unbind("<ButtonPress-2>")
-            self.imageArea.unbind("<B2-Motion>")
-            self.resetZoom()
-            #DO NOT TOUCH THIS PART ===============
-            
-        else:
-            #DO NOT TOUCH THIS PART ===============
-            self.toggleZoomButton.config(text="DISABLE ZOOM")
-            self.zoomEnabled = True
-            self.imageArea.bind("<ButtonPress-2>", self.startMove)
-            self.imageArea.bind("<B2-Motion>", self.moveImage)
-            
-            #ROI STUFF
-            if (self.roiOn):
-                self.toggleROI()
-            #DO NOT TOUCH THIS PART ===============
-            
-        print(f"""TOGGLE STATUS:
-                ROI:{self.roiOn}
-                ZOOM:{self.zoomEnabled}""")
-    
-    def zoomIn(self):
-        if (self.zoomEnabled):
-            self.zoomLevel += 0.1
-            
-            self.imageZoomUpdate()
-            
-    def zoomOut(self):
-        if (self.zoomEnabled):
-            self.zoomLevel -= 0.1
-            
-            self.imageZoomUpdate()
-            
-    def imageZoomUpdate(self):
-        width, height = self.imageForMaskMultiplication.size
-        new_width = int(width * self.zoomLevel)
-        new_height = int(height * self.zoomLevel)
-        resized_image = self.imageForMaskMultiplication.resize((new_width, new_height), Image.LANCZOS)
-        self.image = ImageTk.PhotoImage(resized_image)
-        self.imageArea.create_image(self.moveX, self.moveY, image=self.image, anchor='nw')
-    
-    def resetZoom(self):
-       self.zoomLevel = 1
-       self.moveX, self.moveY = 0, 0
-       self.imageZoomUpdate()
-
-#M OOOOOOO VEMENT DA IMAGEM
-    def startMove(self, event):
-        self.pan_start_x = event.x
-        self.pan_start_y = event.y
-
-    def moveImage(self, event):
-        dx = event.x - self.pan_start_x
-        dy = event.y - self.pan_start_y
-        self.moveX += dx
-        self.moveY += dy
-        self.pan_start_x = event.x
-        self.pan_start_y = event.y
-        self.imageZoomUpdate()
 
 #ROI RELATED METHODS
     def listSavedROIFiles(self):
@@ -393,75 +344,97 @@ class CropApp:
             print("Marque as ROIs fígado e rim antes de salvar.")
 
     def deleteROIarea(self):
+        # Verifica se existe uma área de região de interesse definida
         if (self.areaROI):
+            # Remove a área de ROI do widget da imagem
             self.imageArea.delete(self.areaROI)
+            # Define a área de ROI como nulo para indicar que não há mais ROI ativa
             self.areaROI = None
 
     def deleteDualROIarea(self):
+        # Verifica se existe alguma das áreas de ROI definidas
         if (self.areaROI1 or self.areaROI2):
+            # indica que as áreas foram resetadas
             self.roi1 = None
             self.roi2 = None
+            # Remove as áreas de ROI1 e ROI2 do widget de imagem
             self.imageArea.delete(self.areaROI1)
             self.imageArea.delete(self.areaROI2)
+            # Define ROI1 e ROI2 como None para indicar que as áreas foram removidas
             self.areaROI1 = None
             self.areaROI2 = None
+            # Exibe uma mensagem indicando que as ROIs foram resetadas
             print("ROIs resetadas.")
+            # Se a variável roiOn estiver ativa, chama o método gotoROI1
             if (self.roiOn):
                 self.gotoROI1()
 
+
     def toggleROI(self):
         #DO NOT TOUCH THIS PART ===============
+        # Olha se a marcação de ROI está ativada
         if (self.roiOn):
-            # Disable ROI selection
+            # Desativa a marcação de ROI
             self.roiOn = False
+            # Atualiza o texto do botão para indicar que a marcação de ROI está desativada
             self.chooseRoi.config(text="SELECT ROI")
+            # Remove os eventos de clique e arrasto do Canvas de imagem
             self.imageArea.unbind("<Button-1>")
             self.imageArea.unbind("<B1-Motion>")
+            # Deleta as áreas de ROI duplas se tiver
             self.deleteDualROIarea()
-            #DO NOT TOUCH THIS PART ===============
 
         else:
             #DO NOT TOUCH THIS PART ===============
-            # Enable ROI selection
+            # Ativa a marcação de ROI
             self.roiOn = True
+            # Atualiza o texto do botão para indicar que a marcação de ROI está ativada
             self.chooseRoi.config(text="END SELECT ROI")
 
-            # Disable zoom while selecting ROIs
+            # Desativa o zoom enquanto a marcação de ROI está ativa
             if (self.zoomEnabled):
                 self.toggleZoom()
             #DO NOT TOUCH THIS PART ===============
-            
-            # Determine which ROI to select next
+
+            # Determina qual ROI será selecionada a seguir
             if (self.roi1 is not None and self.roi2 is None):
+                # Se a primeira ROI ja esta marcada e a segunda não passa a marcação da segunda ROI
                 self.gotoROI2()
             
             elif (self.roi1 is None):
+                # Se nenhuma ROI esta marcada começa pela primeira ROI
                 self.gotoROI1()
             
             else:
-                # If both ROIs are already selected
-                print("ROIs já foram marcadas.")
+                # Se ambas as ROIs ja estão marcadas
+                print("ROIs já foram marcadas")
+                # Atualiza o botão para indicar que ambas as ROIs estão marcadas
                 self.chooseRoi.config(text="ROIs SELECTED")
+                # Remove os eventos de clique e arrasto
                 self.imageArea.unbind("<Button-1>")
                 self.imageArea.unbind("<B1-Motion>")
-                
+        
+        # Exibe o status atual de marcação de ROI e zoom
         print(f"""TOGGLE STATUS:
-                ROI:{self.roiOn}
-                ZOOM:{self.zoomEnabled}""")
+                    ROI:{self.roiOn}
+                    ZOOM:{self.zoomEnabled}""")
 
     def gotoROI1(self):
-        # If no ROI is selected, start with liver ROI (ROI 1)
+        # Caso nenhuma ROI esteja marcada inicia a marcação da primeira ROI
         self.chooseRoi.config(text="SELECT LIVER ROI (ROI 1)")
+        # Define eventos de clique e arrasto para iniciar e finalizar a marcação da primeira ROI
         self.imageArea.bind("<Button-1>", self.startDrawROI)
         self.imageArea.bind("<B1-Motion>", self.finishDrawROI)
-        print("Marque a primeira ROI (fígado).")
-        
+        print("Marque a primeira ROI (fígado)")
+
     def gotoROI2(self):
-        # If liver ROI (ROI 1) is already selected, allow kidney ROI (ROI 2) selection
-            self.chooseRoi.config(text="SELECT KIDNEY ROI (ROI 2)")
-            self.imageArea.bind("<Button-1>", self.startDrawROI2)
-            self.imageArea.bind("<B1-Motion>", self.finishDrawROI2)
-            print("Marque a segunda ROI (rim).")
+        # Caso a primeira ROI já esteja marcada permite a marcação da segunda ROI
+        self.chooseRoi.config(text="SELECT KIDNEY ROI (ROI 2)")
+        # Define eventos de clique e arrasto para iniciar e finalizar a marcação da segunda ROI
+        self.imageArea.bind("<Button-1>", self.startDrawROI2)
+        self.imageArea.bind("<B1-Motion>", self.finishDrawROI2)
+        print("Marque a segunda ROI (rim)")
+
 
     def startDrawROI(self, event):
         # Pega o clique inicial
@@ -568,10 +541,14 @@ class CropApp:
             
     # S C R O L L
     def createScrollableCanvas(self, parentWindow):
+        #Faz um Canvas dentro da janela pai
         canvas = Canvas(parentWindow)
+        #Faz uma barra de rolagem vertical associada ao Canvas
         scrollbar = Scrollbar(parentWindow, orient="vertical", command=canvas.yview)
+        #Faz um frame que vai dentro do Canvas é o que realmente vai rolar
         scrollable_frame = Frame(canvas)
 
+        #Configura a área rolável do Canvas quando o frame é redimensionado
         scrollable_frame.bind(
             "<Configure>",
             lambda e: canvas.configure(
@@ -579,30 +556,39 @@ class CropApp:
             )
         )
 
+        #Posiciona o frame dentro do Canvas, no lado superior esquerdo
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        # Vincula a barra de rolagem ao Canvas
         canvas.configure(yscrollcommand=scrollbar.set)
 
+        #coloca o Canvas e a barra de rolagem na tela
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
+        # Retorna o frame rolável que acabou de ser criado
         return scrollable_frame
-    
+
     def nextMatPatient(self):
+        #se o arquivo .mat estiver aberto vai para o próximo paciente 
         if (self.matFileIsOpen):
+            # caso chegue ao último paciente volta para o primeiro paciente
             if (self.numPatient >= 54):
                 self.numPatient = 0
             else:
+                # se não vai para o próximo paciente
                 self.numPatient += 1
             
             self.imgPatient = 0
             
-            print("Patient: ", self.numPatient)
-            print("Image: ", self.imgPatient)
+            print("Paciente: ", self.numPatient)
+            print("Imagem: ", self.imgPatient)
             
+            # Vai para a imagem atual do paciente
             if (self.imgPatient >= 0 and self.imgPatient <= 54):
                 self.navigateThroughMatFile(self.numPatient, self.imgPatient)
-    
+
     def previousMatPatient(self):
+        # Volta para o paciente anterior se o arquivo .mat estiver aberto
         if (self.matFileIsOpen):
             if (self.numPatient <= 0):
                 self.numPatient = 54
@@ -611,25 +597,30 @@ class CropApp:
             
             self.imgPatient = 0
                         
-            print("Patient: ", self.numPatient)
-            print("Image: ", self.imgPatient)            
+            print("Paciente: ", self.numPatient)
+            print("Imagem: ", self.imgPatient)        
             
             if (self.imgPatient >= 0 and self.imgPatient <= 54):
                 self.navigateThroughMatFile(self.numPatient, self.imgPatient)
             
+    #P A S S A    A    I M G   D O    P A C I E N T E        
     def nextMatPatientImage(self):
         if (self.matFileIsOpen):
+            # Se chegou à última imagem, volta para a primeira
             if (self.imgPatient >= 9):
                 self.imgPatient = 0
             else:
+                # Caso contrário, vai para a próxima imagem
                 self.imgPatient += 1
             
-            print("Patient: ", self.numPatient)
-            print("Image: ", self.imgPatient)
+            # Mostra o paciente e a imagem atual
+            print("Paciente: ", self.numPatient)
+            print("Imagem: ", self.imgPatient)
             
+            # Navega para a imagem atual do paciente
             if (self.imgPatient >= 0 and self.imgPatient <= 9):
                 self.navigateThroughMatFile(self.numPatient, self.imgPatient)
-              
+            
     def previousMatPatientImage(self):
         if (self.matFileIsOpen):
             if (self.imgPatient <= 0):
@@ -637,12 +628,13 @@ class CropApp:
             else:
                 self.imgPatient -= 1
             
-            print("Patient: ", self.numPatient)
-            print("Image: ", self.imgPatient)
+            print("Paciente: ", self.numPatient)
+            print("Imagem: ", self.imgPatient)
             
             if (self.imgPatient >= 0 and self.imgPatient <= 9):
                 self.navigateThroughMatFile(self.numPatient, self.imgPatient)
 
+    #E N T R O P I A
     def calculo_entropia_glcm(self, glcm):
         glcm_normalized = glcm / np.sum(glcm)
         entropy = 0
@@ -654,7 +646,7 @@ class CropApp:
   
 #ROI IMAGE WINDOW (This is here because the code is already unorganized) Fuck Monoliths
     def showROIWindow(self):
-        print("I AM STEVE")
+        #print("I AM STEVE")
 
         ROICanvasWidth = 280
         ROICanvasHeight = 280
@@ -703,7 +695,7 @@ class CropApp:
         
     def displayROIinROIWindowCanvas(self, roiPath, ROIArea, ROICanvasHeight, ROICanvasWidth):
         ROIArea.delete("all")
-        print("You are now viewing: " + roiPath)
+        print("ROI: " + roiPath)
 
         # Update the currently displaying ROI path
         self.displayingROIPath = roiPath
@@ -724,48 +716,52 @@ class CropApp:
         ROIArea.create_image(offsetX, offsetY, image=self.ROIimageTk, anchor='nw')
 
     def displayHistogramInROIWindow(self, roiPath, histWidth=280, histHeight=280):
-    # Clear the previous histogram
+        # Limpa o histograma anterior da imagem
         for widget in self.histogramFrame.winfo_children():
             widget.destroy()
-    
-        # Load the ROI image
+        
+        # Carrega a imagem da região da ROI em escala de cinza
         roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
-    
-        # Calculate the histogram
-        height, width = roiImage.shape
-        total_pixels = height * width
-    
+        
+        height, width = roiImage.shape  # Pega a altura e largura da imagem
+        total_pixels = height * width   # Pega o total de pixels
+
+        # Cria um array para o histograma com 256 posições
         hist = np.zeros(256, dtype=int)
+        # Conta cada nível de intensidade de pixel e incrementa o valor correspondente no histograma
         for i in range(height):
             for j in range(width):
                 intensity_value = roiImage[i, j]
                 hist[intensity_value] += 1
-    
-        assert sum(hist) == total_pixels, "The sum of the histogram must equal the total number of pixels"
-    
-        # Plot the histogram with fixed size 280x280
-        fig, ax = plt.subplots(figsize=(2.8, 2.8))  # 280x280 pixels
+
+        # Verifica se a soma dos valores do histograma é igual ao total de pixels da imagem
+        assert sum(hist) == total_pixels
+        
+        # Configura o gráfico tamanho fixo 280x280 pixels
+        fig, ax = plt.subplots(figsize=(2.8, 2.8))
         ax.set_title(f"Histogram for {os.path.basename(roiPath)}", fontsize=10)
         ax.plot(hist, color='black')
         ax.set_xlim([0, 255])
+        # os rótulos e o tamanho da fonte dos eixos
         ax.set_xlabel('Pixel Intensity', fontsize=8)
         ax.set_ylabel('Number of Pixels', fontsize=8)
         ax.tick_params(axis='both', which='major', labelsize=8)
-    
-        # Adjust the layout to prevent cutting off labels
+
+        # Ajusta o layout para evitar que as etiquetas fiquem cortadas
         fig.tight_layout()
-    
-        # Embed the plot in the histogram frame
+        
+        # Insere o gráfico do histograma dentro do frame do histograma
         canvas_hist = FigureCanvasTkAgg(fig, master=self.histogramFrame)
         canvas_hist.draw()
-    
-        # Ensure the canvas is fixed to 280x280 size
+        
+        # Garante que o gráfico tenha tamanho fixo 280x280 pixels e adiciona um espaço ao redor
         hist_widget = canvas_hist.get_tk_widget()
         hist_widget.pack(fill=tk.BOTH, expand=False, padx=10, pady=10)
         hist_widget.config(width=histWidth*1.5, height=histHeight)
 
+
     def displayRadialGLCMInROIWindow(self, roiPath, histogramFrame, distances=[1, 2, 4, 8]):
-            # Load the ROI image
+        # Load the ROI image
         roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
 
         # Create a frame for displaying radial GLCM properties under the histogram
@@ -817,47 +813,12 @@ class CropApp:
                 featuresLabel = Label(rightFrame, text=glcmText, font='none 12', justify='left', anchor='w')
                 featuresLabel.pack(pady=5)
 
-    def displayNTInROIWindow(self, roiPath, ROIDisplay, matriculas=[766639, 772198, 1378247]):
+    def displayNTInROIWindow(self, matriculas=[766639, 772198, 1378247]):
         # Calcula NT
         NT = sum(matriculas) % 4
+        print(NT)
 
-        roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
-
-        # Cria GLCM matrix
-        glcm = graycomatrix(roiImage, distances=[1], angles=[0], levels=256, symmetric=True, normed=True)
-
-        # Escolhe o descritor baseado em NT
-        match NT:
-            case 0:
-                descriptor_value = greycoprops(glcm, 'contrast')[0, 0]
-                descriptor_name = 'Contrast'
-            case 1:
-                descriptor_value = greycoprops(glcm, 'dissimilarity')[0, 0]
-                descriptor_name = 'Dissimilarity'
-            case 2:
-                descriptor_value = greycoprops(glcm, 'homogeneity')[0, 0]
-                descriptor_name = 'Homogeneity'
-            case 3:
-                descriptor_value = greycoprops(glcm, 'energy')[0, 0]
-                descriptor_name = 'Energy'
-
-
-        # Add the NT descriptor as a separate Label below the canvas
-        featuresText = (
-            f"{descriptor_name}: {descriptor_value:.4f}"
-        )
-
-        # Remove any existing labels under the canvas before adding the new one
-        for widget in ROIDisplay.winfo_children():
-            if (isinstance(widget, Label)):
-                widget.destroy()
-
-        # Create a label for the NT descriptor and pack it below the canvas
-        NTLabel = Label(ROIDisplay, text="NT DESCRIPTOR", font='none 12 bold', justify='center')
-        NTLabel.pack(pady=5)
-        descriptorLabel = Label(ROIDisplay, text=featuresText, font='none 12', justify='center')
-        descriptorLabel.pack(pady=10)  # Padding to add space between the canvas and the label
-
+    # T I R A R AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
     def displayGLCMPropertiesInROIWindow(self, roiPath, ROIDisplay):
         # Load the ROI image
         roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
@@ -928,8 +889,7 @@ class CropApp:
         featuresLabel.pack(pady=10)
 
 
-
-#Z O O OMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM  
+#Z O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O 0 O O O O O O O O O O O MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM 
     def zoomInROI(self):
         if (self.zoomEnabledROI):
             self.zoomLevelROI += 0.1
@@ -967,6 +927,72 @@ class CropApp:
         self.zoomLevelROI = 1  # Reset zoom level to 1 (default scale)
         self.moveX, self.moveY = 0, 0  # Reset image position
         self.imageZoomUpdateROI()
+
+    def toggleZoom(self):
+        if (self.zoomEnabled):
+            #DO NOT TOUCH THIS PART ===============
+            self.toggleZoomButton.config(text="ENABLE ZOOM")
+            self.zoomEnabled = False
+            self.imageArea.unbind("<ButtonPress-2>")
+            self.imageArea.unbind("<B2-Motion>")
+            self.resetZoom()
+            #DO NOT TOUCH THIS PART ===============
+            
+        else:
+            #DO NOT TOUCH THIS PART ===============
+            self.toggleZoomButton.config(text="DISABLE ZOOM")
+            self.zoomEnabled = True
+            self.imageArea.bind("<ButtonPress-2>", self.startMove)
+            self.imageArea.bind("<B2-Motion>", self.moveImage)
+            
+            #ROI STUFF
+            if (self.roiOn):
+                self.toggleROI()
+            #DO NOT TOUCH THIS PART ===============
+            
+        print(f"""TOGGLE STATUS:
+                ROI:{self.roiOn}
+                ZOOM:{self.zoomEnabled}""")
+    
+    def zoomIn(self):
+        if (self.zoomEnabled):
+            self.zoomLevel += 0.1
+            
+            self.imageZoomUpdate()
+            
+    def zoomOut(self):
+        if (self.zoomEnabled):
+            self.zoomLevel -= 0.1
+            
+            self.imageZoomUpdate()
+            
+    def imageZoomUpdate(self):
+        width, height = self.imageForMaskMultiplication.size
+        new_width = int(width * self.zoomLevel)
+        new_height = int(height * self.zoomLevel)
+        resized_image = self.imageForMaskMultiplication.resize((new_width, new_height), Image.LANCZOS)
+        self.image = ImageTk.PhotoImage(resized_image)
+        self.imageArea.create_image(self.moveX, self.moveY, image=self.image, anchor='nw')
+    
+    def resetZoom(self):
+       self.zoomLevel = 1
+       self.moveX, self.moveY = 0, 0
+       self.imageZoomUpdate()
+
+#M OOOOOOO VEMENT DA IMAGEM
+    def startMove(self, event):
+        self.pan_start_x = event.x
+        self.pan_start_y = event.y
+
+    def moveImage(self, event):
+        dx = event.x - self.pan_start_x
+        dy = event.y - self.pan_start_y
+        self.moveX += dx
+        self.moveY += dy
+        self.pan_start_x = event.x
+        self.pan_start_y = event.y
+        self.imageZoomUpdate()
+    
 
 if ( __name__ == "__main__"):
     root = Tk()
