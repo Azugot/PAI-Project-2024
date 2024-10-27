@@ -308,11 +308,11 @@ class CropApp:
             liverROIAdjusted.save(file_name, "PNG")
             print(f"ROI do fígado salva em: {file_name}")
 
-            # Definindo a classe dos pacientes (0-16 saudáveis, o restante com esteatose)
-            patient_class = "Healthy" if self.numPatient <= 16 else "Steatosis"
+            # Definindo a classe dos pacientes
+            patient_class = "Saudável" if self.numPatient <= 16 else "Esteatose"
             csv_file = os.path.join(self.savePath, 'rois_data.csv')
 
-            # Inicializa o arquivo CSV principal, se necessário
+            # Inicializa o arquivo CSV principal caso ele ainda nao existir
             if not os.path.exists(csv_file):
                 with open(csv_file, mode='w', newline='') as file:
                     writer = csv.writer(file)
@@ -320,7 +320,7 @@ class CropApp:
                     for _ in range(550):
                         writer.writerow(["", "", "", "", ""])
 
-            # Lê todas as linhas do CSV
+            # Le todas as linhas do CSV
             with open(csv_file, mode='r') as file:
                 rows = list(csv.reader(file))
 
@@ -333,12 +333,10 @@ class CropApp:
                 writer = csv.writer(file)
                 writer.writerows(rows)
 
-            print(f"Informações da ROI salvas no arquivo CSV na linha {row_index + 1}.")
-
             # Caminho para o CSV das informações GLCM e SFM
             glcm_sfm_csv = os.path.join(self.savePath, 'glcm_sfm_data.csv')
 
-            # Inicializa o arquivo CSV de GLCM e SFM, se necessário
+            # Inicializa o arquivo CSV de GLCM e SFM se ele nao existir
             if not os.path.exists(glcm_sfm_csv):
                 with open(glcm_sfm_csv, mode='w', newline='') as file:
                     writer = csv.writer(file)
@@ -347,7 +345,7 @@ class CropApp:
                         'Homogeneity', 'Energy', 'Correlation', 'Entropy', 'Coarseness', 'Periodicity', 'Roughness'
                     ])
 
-            # Chama as funções para calcular e armazenar as propriedades GLCM e SFM nas variáveis globais, sem exibir a interface gráfica
+            # Chama as funções para calcular e armazenar as propriedades GLCM e SFM
             self.displayRadialGLCMInROIWindow(file_name, histogramFrame=None, distances=[1, 2, 4, 8])
             self.displaySFMPropertiesInROIWindow(file_name, ROIDisplay=None)
 
@@ -366,7 +364,7 @@ class CropApp:
                         f"{global_sfm_properties.get('roughness', 0):.4f}"
                     ])
 
-            # Limpa as ROIs após salvar
+            # Limpa as ROIs apos salvar
             self.roi1 = None
             self.roi2 = None
 
@@ -671,7 +669,7 @@ class CropApp:
                     entropy -= glcm_normalized[i, j] * log(glcm_normalized[i, j])
         return entropy
   
-# ROI IMAGE WINDOW (This is here because the code is already unorganized) Fuck Monoliths
+# ROI IMAGE WINDOW (This is here because the code is already unorganized)
     def showROIWindow(self):
         #print("I AM STEVE")
 
@@ -796,7 +794,7 @@ class CropApp:
         # Calcula a matriz GLCM para todas as distâncias e ângulos
         glcm = graycomatrix(roiImage, distances=distances, angles=angles, symmetric=True, normed=True)
 
-        # Se histogramFrame for fornecido, cria o layout da interface gráfica uma vez
+        # Se histogram for fornecido vai criar o layout da interface caso nao ele foi ultilizado para salvar as coisas no csv
         if histogramFrame:
             glcmFrame = self.createScrollableCanvas(histogramFrame)
             radialLabel = Label(glcmFrame, text="GLCM RADIAL", font='none 14 bold', justify='center')
@@ -808,7 +806,7 @@ class CropApp:
             rightFrame = Frame(glcmFrame)
             rightFrame.pack(side='left', padx=20)
 
-        # Para cada distância e ângulo, calcula as propriedades de textura
+        # Para cada distância e ângulo calcula as propriedades de textura
         for i, distance in enumerate(distances):
             for j, angle in enumerate(angles):
                 contrast = greycoprops(glcm, 'contrast')[i, j]
@@ -830,7 +828,7 @@ class CropApp:
                     'entropy': entropy
                 })
 
-                # Exibe todas as propriedades na interface gráfica
+                #Mesma coisa da validacao do csv la encima
                 if histogramFrame:
                     # Alterna entre as colunas para cada par de distância e ângulo
                     frame = leftFrame if (i * len(angles) + j) % 2 == 0 else rightFrame
@@ -846,7 +844,6 @@ class CropApp:
                     featuresLabel = Label(frame, text=featuresText, font='none 12', justify='left', anchor='w')
                     featuresLabel.pack(pady=5)
 
-        print(f"GLCM properties stored in global variable: {global_glcm_properties}")
 
     def displaySFMPropertiesInROIWindow(self, roiPath, ROIDisplay=None):
             global global_sfm_properties
@@ -876,7 +873,7 @@ class CropApp:
             grad_y = cv2.Sobel(roiImage, cv2.CV_64F, 0, 1, ksize=3)
             roughness = np.mean(np.sqrt(grad_x**2 + grad_y**2))
 
-            # Armazena as propriedades na variável global
+            # Armazena as propriedades na variavel global
             global_sfm_properties = {
                 'coarseness': coarseness,
                 'contrast': contrast,
@@ -884,7 +881,7 @@ class CropApp:
                 'roughness': roughness
             }
 
-            # Somente exibe na interface gráfica se ROIDisplay estiver definido
+            # Somente exibe na interface gráfica se ROIDisplay estiver definido solucao para salvar no csv as informacoes
             if ROIDisplay:
                 sfmText = (
                     f"Coarseness: {coarseness:.4f}\n"
@@ -903,7 +900,6 @@ class CropApp:
                 self.featuresLabel = Label(ROIDisplay, text=sfmText, font='none 12', justify='center')
                 self.featuresLabel.pack(pady=10)
 
-            print(f"SFM properties stored in global variable: {global_sfm_properties}")
 
 # ZOOM
     def zoomInROI(self):
