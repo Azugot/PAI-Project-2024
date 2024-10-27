@@ -458,7 +458,7 @@ class CropApp:
         self.areaROI1 = self.imageArea.create_rectangle(self.startX-14, self.startY-14, self.startX+14, self.startY+14, outline="green", width=2)
         
         #salva as coordenadas da primeira roi
-        self.roi1 = (self.startX, self.startY, self.startX + 28, self.startY + 28)
+        self.roi1 = (self.startX-14, self.startY-14, self.startX+14, self.startY+14)
         print(f"Primeira ROI (fígado) selecionada: {self.roi1}")
         
         #muda para a seleção da segunda roi
@@ -467,7 +467,7 @@ class CropApp:
 
     def finishDrawROI(self, event):
         #salva as coordenadas da primeira roi
-        self.roi1 = (self.startX, self.startY, self.startX + 28, self.startY + 28)
+        self.roi1 = (self.startX-14, self.startY-14, self.startX+14, self.startY+14)
         print(f"Primeira ROI (fígado) selecionada: {self.roi1}")
         
         #muda para a seleção da segunda ROI (rim)
@@ -489,7 +489,7 @@ class CropApp:
         self.areaROI2 = self.imageArea.create_rectangle(self.startX-14, self.startY-14, self.startX+14, self.startY+14, outline="green", width=2)
         
         #salva as coordenadas da primeira roi        
-        self.roi2 = (self.startX, self.startY, self.startX + 28, self.startY + 28)
+        self.roi2 = (self.startX-14, self.startY-14, self.startX+14, self.startY+14)
         print(f"Segunda ROI (rim) selecionada: {self.roi2}")
         
         #muda o texto do botao
@@ -498,7 +498,7 @@ class CropApp:
 
     def finishDrawROI2(self, event):
         #salva as coordenadas da segunda roi
-        self.roi2 = (self.startX, self.startY, self.startX + 28, self.startY + 28)
+        self.roi2 = (self.startX-14, self.startY-14, self.startX+14, self.startY+14)
         print(f"Segunda ROI (rim) selecionada: {self.roi2}")
         
         #desativa tudo porque ja a dois rois ja foram slecionadas
