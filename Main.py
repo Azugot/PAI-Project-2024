@@ -757,7 +757,6 @@ class CropApp:
         hist_widget.pack(fill=tk.BOTH, expand=False, padx=10, pady=10)
         hist_widget.config(width=histWidth*1.5, height=histHeight)
 
-
     def displayRadialGLCMInROIWindow(self, roiPath, histogramFrame, distances=[1, 2, 4, 8]):
         # Carrega a imagem da ROI (Região de Interesse) em preto e branco
         roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
@@ -818,43 +817,6 @@ class CropApp:
                     featuresLabel = Label(rightFrame, text=featuresText, font='none 12', justify='left', anchor='w')
                     featuresLabel.pack(pady=5)
 
-
-    def displayNTInROIWindow(self, matriculas=[766639, 772198, 1378247]):
-        # Calcula NT
-        NT = sum(matriculas) % 4
-        print(NT)
-
-    # T I R A R AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-    def displayGLCMPropertiesInROIWindow(self, roiPath, ROIDisplay):
-        # Load the ROI image
-        roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
-
-        # Cria GLCM matrix
-        glcm = graycomatrix(roiImage, distances=[1], angles=[0], levels=256, symmetric=True, normed=True)
-
-        # GLCM properties
-        contrast = greycoprops(glcm, 'contrast')[0, 0]
-        dissimilarity = greycoprops(glcm, 'dissimilarity')[0, 0]
-        homogeneity = greycoprops(glcm, 'homogeneity')[0, 0]
-        energy = greycoprops(glcm, 'energy')[0, 0]
-        correlation = greycoprops(glcm, 'correlation')[0, 0]
-
-        # Format the GLCM properties
-        glcmText = (
-            f"Contrast: {contrast:.4f}\n"
-            f"Dissimilarity: {dissimilarity:.4f}\n"
-            f"Homogeneity: {homogeneity:.4f}\n"
-            f"Energy: {energy:.4f}\n"
-            f"Correlation: {correlation:.4f}"
-        )
-
-        # Create a label for the GLCM properties and pack it below the canvas
-        glcmLabel = Label(ROIDisplay, text="GLCM & TEXTURE", font='none 12 bold', justify='center')
-        glcmLabel.pack(pady=5)
-        featuresLabel = Label(ROIDisplay, text=glcmText, font='none 12', justify='center')
-        featuresLabel.pack(pady=10)
-
-
     def displaySFMPropertiesInROIWindow(self, roiPath, ROIDisplay):
         # Carrega a imagem da ROI
         roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
@@ -888,11 +850,17 @@ class CropApp:
             f"Roughness: {roughness:.4f}"
         )
 
+        # Verifica e remove rótulos anteriores, se existirem
+        if hasattr(self, 'sfmLabel') and self.sfmLabel.winfo_exists():
+            self.sfmLabel.destroy()
+        if hasattr(self, 'featuresLabel') and self.featuresLabel.winfo_exists():
+            self.featuresLabel.destroy()
+
         # Cria um label para as propriedades da SFM e exibe abaixo do canvas
-        sfmLabel = Label(ROIDisplay, text="SMF PROPERTIES", font='none 12 bold', justify='center')
-        sfmLabel.pack(pady=5)
-        featuresLabel = Label(ROIDisplay, text=sfmText, font='none 12', justify='center')
-        featuresLabel.pack(pady=10)
+        self.sfmLabel = Label(ROIDisplay, text="SMF PROPERTIES", font='none 12 bold', justify='center')
+        self.sfmLabel.pack(pady=5)
+        self.featuresLabel = Label(ROIDisplay, text=sfmText, font='none 12', justify='center')
+        self.featuresLabel.pack(pady=10)
 
 
 #Z O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O 0 O O O O O O O O O O O MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM 
