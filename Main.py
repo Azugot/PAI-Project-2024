@@ -1,3 +1,12 @@
+# PROCESSAMENTO E ANALISE DE IMAGENS
+# TRABALHO 1
+
+# INTEGRANTES DO GRUPO:
+#   Augusto Scardua Oliveira
+#   Gabriel Pessotti de Deus
+#   Vitoria de Lourdes Carvalho Santos
+
+
 from tkinter import Label, filedialog, Canvas, Button, Tk, Toplevel, Frame, Scrollbar, Canvas
 from PIL import Image, ImageTk
 import tkinter as tk
@@ -103,7 +112,7 @@ class CropApp:
         self.imageArea.grid(row=0, column=0, columnspan=3)
         self.openROIWindow.grid(row=3, column=0, columnspan=3)
 
-    #M OSTRAR BOTOES DPS DE ENVIAR A IMAGEM
+# MOSTRAR BOTOES DEPOIS DE ENVIAR A IMAGEM
     def showAdditionalButtons(self):
         self.showArea.grid(row=5, column=0, sticky="n")
         self.chooseRoi.grid(row=3, column=0, sticky="n")
@@ -271,10 +280,10 @@ class CropApp:
             # Exibe o histograma da imagem no Canvas
             self.showHistogram(matImage)
 
-#ROI RELATED METHODS
+# ROI RELATED METHODS
     def listSavedROIFiles(self):
         # Function to list all saved ROI files
-        return [f for f in os.listdir(self.savePath) if (os.path.isfile(os.path.join(self.savePath, f)))]    
+        return [f for f in os.listdir(self.savePath) if (os.path.isfile(os.path.join(self.savePath, f)))]
 
     def saveROI(self):
         if (self.roi1 and self.roi2):  # verifica se as duas rois foram selecionadas pq so pode salvar depois das duas marcadas
@@ -441,11 +450,11 @@ class CropApp:
         self.startX = event.x
         self.startY = event.y
         
-        #remove qualquer roi anterior desenhada
+        # Remove qualquer roi anterior desenhada
         if (self.areaROI1):
             self.imageArea.delete(self.areaROI1)
         
-        #faz o quadrado da roi com tamanho fixo de 28x28 pixels
+        # Faz o quadrado da roi com tamanho fixo de 28x28 pixels
         self.areaROI1 = self.imageArea.create_rectangle(self.startX-14, self.startY-14, self.startX+14, self.startY+14, outline="green", width=2)
         
         #salva as coordenadas da primeira roi
@@ -507,7 +516,7 @@ class CropApp:
 
             self.areaROI = self.imageArea.create_rectangle(self.startX-14, self.startY-14, self.startX+14, self.startY+14, outline="green", width=2)
 
-    #TODO: Fix this method for generic Images 
+    #TODO: Fix this method for generic Images
     def acquireROI(self, roi_coords):
         x1, y1, x2, y2 = roi_coords
         x1, y1 = map(int, [max(0, x1), max(0, y1)])
@@ -539,7 +548,7 @@ class CropApp:
         else:
             print("Tem que marca as duaaas")
             
-    # S C R O L L
+# SCROLL
     def createScrollableCanvas(self, parentWindow):
         #Faz um Canvas dentro da janela pai
         canvas = Canvas(parentWindow)
@@ -603,7 +612,7 @@ class CropApp:
             if (self.imgPatient >= 0 and self.imgPatient <= 54):
                 self.navigateThroughMatFile(self.numPatient, self.imgPatient)
             
-    #P A S S A    A    I M G   D O    P A C I E N T E        
+# PASSA A IMAGEM DO PACIENTE
     def nextMatPatientImage(self):
         if (self.matFileIsOpen):
             # Se chegou à última imagem, volta para a primeira
@@ -634,7 +643,7 @@ class CropApp:
             if (self.imgPatient >= 0 and self.imgPatient <= 9):
                 self.navigateThroughMatFile(self.numPatient, self.imgPatient)
 
-    #E N T R O P I A
+# ENTROPIA
     def calculo_entropia_glcm(self, glcm):
         glcm_normalized = glcm / np.sum(glcm)
         entropy = 0
@@ -644,7 +653,7 @@ class CropApp:
                     entropy -= glcm_normalized[i, j] * log(glcm_normalized[i, j])
         return entropy
   
-#ROI IMAGE WINDOW (This is here because the code is already unorganized) Fuck Monoliths
+# ROI IMAGE WINDOW (This is here because the code is already unorganized) Fuck Monoliths
     def showROIWindow(self):
         #print("I AM STEVE")
 
@@ -863,7 +872,7 @@ class CropApp:
         self.featuresLabel.pack(pady=10)
 
 
-#Z O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O O 0 O O O O O O O O O O O MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM 
+# ZOOM
     def zoomInROI(self):
         if (self.zoomEnabledROI):
             self.zoomLevelROI += 0.1
@@ -953,7 +962,7 @@ class CropApp:
        self.moveX, self.moveY = 0, 0
        self.imageZoomUpdate()
 
-#M OOOOOOO VEMENT DA IMAGEM
+# MOVIMENTO DA IMAGEM
     def startMove(self, event):
         self.pan_start_x = event.x
         self.pan_start_y = event.y
