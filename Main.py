@@ -22,13 +22,7 @@ import io
 from math import log
 import pandas as pd
 import csv
-from sklearn.metrics import (
-    classification_report,
-    accuracy_score,
-    confusion_matrix,
-    roc_auc_score,
-    RocCurveDisplay
-)
+from sklearn.metrics import classification_report, accuracy_score, confusion_matrix, roc_auc_score, RocCurveDisplay
 import xgboost as xgb
 
 global_glcm_properties = []
