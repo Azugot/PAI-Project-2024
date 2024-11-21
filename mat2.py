@@ -248,7 +248,7 @@ class CrossValidationTraining:
             plt.ylabel('Acurácia')
             plt.title(f'Gráfico de Aprendizado - Fold {fold + 1}')
             plt.legend()
-            plt.savefig(os.path.join(self.train_graphs_dir, f'learning_curve_fold_{fold + 1}.png'))
+            plt.savefig(os.path.join(self.train_graphs_dir, f'learning_curve_fold_{fold}.png'))
             plt.close()
 
             # Also plot loss curves
@@ -259,7 +259,7 @@ class CrossValidationTraining:
             plt.ylabel('Loss')
             plt.title(f'Curva de Loss - Fold {fold + 1}')
             plt.legend()
-            plt.savefig(os.path.join(self.train_graphs_dir, f'loss_curve_fold_{fold + 1}.png'))
+            plt.savefig(os.path.join(self.train_graphs_dir, f'loss_curve_fold_{fold}.png'))
             plt.close()
 
             if val_acc_epoch:
