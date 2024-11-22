@@ -30,6 +30,14 @@ from sklearn.metrics import (
     RocCurveDisplay
 )
 import xgboost as xgb
+from sklearn.model_selection import GroupKFold
+from sklearn.metrics import confusion_matrix, accuracy_score
+import xgboost as xgb
+import pandas as pd
+import numpy as np
+from xgboost import XGBClassifier
+
+
 
 global_glcm_properties = []
 global_sfm_properties = {}
@@ -1014,80 +1022,90 @@ class CropApp:
         self.pan_start_y = event.y
         self.imageZoomUpdate()
 
-def evaluate_binary_classifier(data_path):
-    try:
-        # Carregar os dados do CSV
-        data = pd.read_csv(data_path, on_bad_lines="skip")
+def run_xgboost_cross_validation(df):
+    import pandas as pd
+    import numpy as np
+    from sklearn.metrics import confusion_matrix, accuracy_score
+    import xgboost as xgb
 
-        # Verificar colunas obrigatórias
-        required_columns = [
-            "Arquivo", "Classificação", "Entropy", "Homogeneity",
-            "Contrast", "Dissimilarity", "Energy", "Correlation",
-            "Coarseness", "Periodicity", "Roughness"
-        ]
-        if not all(col in data.columns for col in required_columns):
-            raise ValueError(f"As colunas ausentes no dataset são: {missing}")
+    # Extrair o ID do paciente a partir da coluna 'Arquivo'
+    df['Paciente_ID'] = df['Arquivo'].apply(lambda x: int(x.split('_')[1]))
 
-        # Converter classes para valores numéricos
-        data["Classificação"] = data["Classificação"].map({"Saudável": 0, "Esteatose": 1})
+    # Mapear a variável alvo
+    df['Classificação_Binária'] = df['Classificação'].map({
+        'Saudável': 0,
+        'Não Saudável': 1,
+        'Esteatose': 1
+    })
 
-        # Verificar desbalanceamento
-        print("Distribuição de Classes:\n", data["Classificação"].value_counts())
+    # Remover linhas com NaN
+    df = df.dropna(subset=['Classificação_Binária'])
+    df['Classificação_Binária'] = df['Classificação_Binária'].astype(int)
 
-        # Adicionar número do paciente
-        data["Paciente"] = data["Arquivo"].apply(lambda x: int(x.split("_")[1]))
-        pacientes = sorted(data["Paciente"].unique())
+    # Selecionar as features
+    features = ['Contrast', 'Dissimilarity', 'Homogeneity', 'Energy', 'Correlation',
+                'Entropy', 'Coarseness', 'Periodicity', 'Roughness']
 
-        # Inicializar métricas globais
-        all_accuracies, all_specificities, all_sensitivities = [], [], []
-        aggregated_cm = np.zeros((2, 2), dtype=int)
+    # Inicializar métricas
+    total_confusion_matrix = np.array([[0, 0], [0, 0]])
+    acuracias = []
+    sensibilidades = []
+    especificidades = []
 
-        for paciente_teste in pacientes:
-            print(f"\nValidando com o paciente {paciente_teste} como teste...")
-            train_data = data[data["Paciente"] != paciente_teste]
-            test_data = data[data["Paciente"] == paciente_teste]
+    # Obter a lista de pacientes
+    pacientes = df['Paciente_ID'].unique()
 
-            if train_data.empty or test_data.empty:
-                print(f"Dados insuficientes para o paciente {paciente_teste}. Pulando...")
-                continue
+    # Loop sobre cada paciente
+    for paciente_id in pacientes:
+        # Dividir os dados em treino e teste
+        df_treino = df[df['Paciente_ID'] != paciente_id]
+        df_teste = df[df['Paciente_ID'] == paciente_id]
 
-            X_train = train_data[required_columns[2:]]
-            y_train = train_data["Classificação"]
-            X_test = test_data[required_columns[2:]]
-            y_test = test_data["Classificação"]
+        X_train = df_treino[features].values
+        y_train = df_treino['Classificação_Binária'].values
+        X_test = df_teste[features].values
+        y_test = df_teste['Classificação_Binária'].values
 
-            # Ajustar pesos das classes
-            class_weights = len(train_data) / (2 * train_data["Classificação"].value_counts())
-            scale_pos_weight = class_weights[1] / class_weights[0]
+        # Verificar se o conjunto de treino inclui todas as linhas, exceto as do paciente de teste
+        assert len(df_treino) + len(df_teste) == len(df), "A divisão dos dados não está correta."
 
-            model = xgb.XGBClassifier(
-                eval_metric="logloss", n_estimators=100,
-                learning_rate=0.1, max_depth=5, scale_pos_weight=scale_pos_weight
-            )
-            model.fit(X_train, y_train)
+        # Treinar o modelo
+        model = xgb.XGBClassifier(eval_metric='logloss')
+        model.fit(X_train, y_train)
 
-            y_pred = model.predict(X_test)
+        # Predizer no conjunto de teste
+        y_pred = model.predict(X_test)
 
-            cm = confusion_matrix(y_test, y_pred, labels=[0, 1])
-            aggregated_cm += cm
+        # Atualizar a matriz de confusão total
+        cm = confusion_matrix(y_test, y_pred, labels=[0, 1])
+        total_confusion_matrix += cm
 
-            tn, fp, fn, tp = cm.ravel()
-            acc = accuracy_score(y_test, y_pred)
-            specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
-            sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0
+        # Calcular métricas para esta iteração
+        tn, fp, fn, tp = cm.ravel()
+        acuracia = (tp + tn) / (tp + tn + fp + fn)
+        sensibilidade = tp / (tp + fn) if (tp + fn) > 0 else 0
+        especificidade = tn / (tn + fp) if (tn + fp) > 0 else 0
 
-            all_accuracies.append(acc)
-            all_specificities.append(specificity)
-            all_sensitivities.append(sensitivity)
+        # Armazenar métricas
+        acuracias.append(acuracia)
+        sensibilidades.append(sensibilidade)
+        especificidades.append(especificidade)
 
-        print("\nResultados gerais:")
-        print(f"Acurácia média: {np.mean(all_accuracies):.2f}")
-        print(f"Especificidade média: {np.mean(all_specificities):.2f}")
-        print(f"Sensibilidade média: {np.mean(all_sensitivities):.2f}")
-        print("Matriz de Confusão Agregada:\n", aggregated_cm)
+    # Calcular métricas médias
+    media_acuracia = np.mean(acuracias)
+    media_sensibilidade = np.mean(sensibilidades)
+    media_especificidade = np.mean(especificidades)
 
-    except Exception as e:
-        print(f"Erro: {e}")
+    # Exibir os resultados
+    print(f"Média de Acurácia: {media_acuracia:.4f}")
+    print(f"Média de Sensibilidade: {media_sensibilidade:.4f}")
+    print(f"Média de Especificidade: {media_especificidade:.4f}")
+    print("Matriz de Confusão Total:")
+    print(total_confusion_matrix)
+
+    return media_acuracia, media_sensibilidade, media_especificidade, total_confusion_matrix
+
+
 
 if __name__ == "__main__":
     root = Tk()
@@ -1097,7 +1115,10 @@ if __name__ == "__main__":
         root.mainloop()
 
     def run_evaluation():
-        evaluate_binary_classifier('./ROISavedFiles/glcm_sfm_data.csv')
+        data_path = "./ROISavedFiles/glcm_sfm_data.csv"
+        df = pd.read_csv(data_path)
+        # Executar o classificador
+        run_xgboost_cross_validation(df)
 
     start_gui()
     run_evaluation()
