@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import LeaveOneGroupOut
@@ -25,6 +24,9 @@ class XGBoostCrossValidation:
         self.data = pd.read_csv(self.csv_file, on_bad_lines='skip', encoding='utf-8')
         self.data = self.data.drop_duplicates()
 
+        # Adicionar coluna para rastrear índices originais
+        self.data['OriginalIndex'] = self.data.index
+
         # Mapear classes para valores binários
         self.data['Classificação'] = self.data['Classificação'].map({'Saudável': 0, 'Esteatose': 1})
 
@@ -40,7 +42,7 @@ class XGBoostCrossValidation:
         # Extrair o número do paciente e características
         self.data['Paciente'] = self.data['Arquivo'].apply(lambda x: int(x.split('_')[1]))
         self.features = ['Contrast', 'Dissimilarity', 'Homogeneity', 'Energy', 'Correlation', 
-                         'Entropy', 'Coarseness', 'Periodicity', 'Roughness']
+                        'Entropy', 'Coarseness', 'Periodicity', 'Roughness']
         self.X = self.data[self.features].values
         self.y = self.data['Classificação'].values
         self.groups = self.data['Paciente'].values
@@ -54,9 +56,15 @@ class XGBoostCrossValidation:
         additional_groups = np.random.choice(original_groups, len(self.y) - len(original_groups))
         self.groups = np.concatenate([original_groups, additional_groups])
 
+        # Atualizar índices originais para os dados balanceados
+        original_indices = self.data['OriginalIndex'].values
+        additional_indices = np.random.choice(original_indices, len(self.y) - len(original_indices))
+        self.original_indices = np.concatenate([original_indices, additional_indices])
+
         print("Distribuição das classes após balanceamento:")
         print(pd.Series(self.y).value_counts())
         print(f"Dados carregados: {self.X.shape[0]} amostras, {self.X.shape[1]} características.")
+
 
     def cross_validate(self):
         print("Iniciando validação cruzada avançada com todos os pares de pacientes...")
@@ -71,15 +79,16 @@ class XGBoostCrossValidation:
             # Separar todas as linhas (imagens) do paciente atual para teste
             test_idx = np.where(self.groups == test_patient)[0]
             X_test, y_test = self.X[test_idx], self.y[test_idx]
+            test_original_indices = self.original_indices[test_idx]  # Índices originais
 
             # Separar todas as linhas (imagens) dos outros pacientes para treino
             train_idx = np.where(self.groups != test_patient)[0]
             X_train, y_train = self.X[train_idx], self.y[train_idx]
+            train_original_indices = self.original_indices[train_idx]  # Índices originais
 
-            # Garantir que os pacientes anteriores e posteriores ao paciente atual estão no treinamento
             print(f"\nFold {fold + 1}: Paciente de Teste={test_patient}")
-            print(f"Índices de Teste: {test_idx.tolist()}")
-            print(f"Índices de Treinamento: {train_idx.tolist()}")
+            print(f"Índices Originais de Teste: {test_original_indices.tolist()}")
+            print(f"Índices Originais de Treinamento: {train_original_indices.tolist()}")
             print(f"Número de Amostras no Treino: {len(train_idx)}, Teste: {len(test_idx)}")
 
             # Verificar a presença de ambas as classes no conjunto de treinamento
@@ -137,6 +146,7 @@ class XGBoostCrossValidation:
         aggregated_cm = np.sum(confusion_matrices, axis=0)
         self.plot_confusion_matrix(aggregated_cm, ["Saudável", "Esteatose"], "Matriz de Confusão Agregada")
         print(f"Matriz de Confusão Agregada:\n{aggregated_cm}")
+
 
 
     @staticmethod
