@@ -22,8 +22,6 @@ import io
 from math import log
 import pandas as pd
 import csv
-from sklearn.metrics import classification_report, accuracy_score, confusion_matrix, roc_auc_score, RocCurveDisplay
-import xgboost as xgb
 
 global_glcm_properties = []
 global_sfm_properties = {}
@@ -1007,91 +1005,9 @@ class CropApp:
         self.pan_start_x = event.x
         self.pan_start_y = event.y
         self.imageZoomUpdate()
+    
 
-def evaluate_binary_classifier(data_path):
-    try:
-        # Carregar os dados do CSV
-        data = pd.read_csv(data_path, on_bad_lines="skip")
-
-        # Verificar colunas obrigatórias
-        required_columns = [
-            "Arquivo", "Classificação", "Entropy", "Homogeneity",
-            "Contrast", "Dissimilarity", "Energy", "Correlation",
-            "Coarseness", "Periodicity", "Roughness"
-        ]
-        if not all(col in data.columns for col in required_columns):
-            raise ValueError(f"As colunas ausentes no dataset são: {missing}")
-
-        # Converter classes para valores numéricos
-        data["Classificação"] = data["Classificação"].map({"Saudável": 0, "Esteatose": 1})
-
-        # Verificar desbalanceamento
-        print("Distribuição de Classes:\n", data["Classificação"].value_counts())
-
-        # Adicionar número do paciente
-        data["Paciente"] = data["Arquivo"].apply(lambda x: int(x.split("_")[1]))
-        pacientes = sorted(data["Paciente"].unique())
-
-        # Inicializar métricas globais
-        all_accuracies, all_specificities, all_sensitivities = [], [], []
-        aggregated_cm = np.zeros((2, 2), dtype=int)
-
-        for paciente_teste in pacientes:
-            print(f"\nValidando com o paciente {paciente_teste} como teste...")
-            train_data = data[data["Paciente"] != paciente_teste]
-            test_data = data[data["Paciente"] == paciente_teste]
-
-            if train_data.empty or test_data.empty:
-                print(f"Dados insuficientes para o paciente {paciente_teste}. Pulando...")
-                continue
-
-            X_train = train_data[required_columns[2:]]
-            y_train = train_data["Classificação"]
-            X_test = test_data[required_columns[2:]]
-            y_test = test_data["Classificação"]
-
-            # Ajustar pesos das classes
-            class_weights = len(train_data) / (2 * train_data["Classificação"].value_counts())
-            scale_pos_weight = class_weights[1] / class_weights[0]
-
-            model = xgb.XGBClassifier(
-                eval_metric="logloss", n_estimators=100,
-                learning_rate=0.1, max_depth=5, scale_pos_weight=scale_pos_weight
-            )
-            model.fit(X_train, y_train)
-
-            y_pred = model.predict(X_test)
-
-            cm = confusion_matrix(y_test, y_pred, labels=[0, 1])
-            aggregated_cm += cm
-
-            tn, fp, fn, tp = cm.ravel()
-            acc = accuracy_score(y_test, y_pred)
-            specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
-            sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0
-
-            all_accuracies.append(acc)
-            all_specificities.append(specificity)
-            all_sensitivities.append(sensitivity)
-
-        print("\nResultados gerais:")
-        print(f"Acurácia média: {np.mean(all_accuracies):.2f}")
-        print(f"Especificidade média: {np.mean(all_specificities):.2f}")
-        print(f"Sensibilidade média: {np.mean(all_sensitivities):.2f}")
-        print("Matriz de Confusão Agregada:\n", aggregated_cm)
-
-    except Exception as e:
-        print(f"Erro: {e}")
-
-if __name__ == "__main__":
+if ( __name__ == "__main__"):
     root = Tk()
     app = CropApp(root, "./ROISavedFiles", 636, 434)
-
-    def start_gui():
-        root.mainloop()
-
-    def run_evaluation():
-        evaluate_binary_classifier('./ROISavedFiles/glcm_sfm_data.csv')
-
-    start_gui()
-    run_evaluation()
+    root.mainloop()
