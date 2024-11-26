@@ -3,9 +3,9 @@ import pandas as pd
 from sklearn.model_selection import LeaveOneGroupOut
 from sklearn.metrics import confusion_matrix, accuracy_score, recall_score, precision_score
 import xgboost as xgb
-from imblearn.over_sampling import SMOTE
 import matplotlib.pyplot as plt
 import seaborn as sns
+import csv
 import warnings
 
 
@@ -36,7 +36,7 @@ class XGBoostCrossValidation:
             print(self.data[self.data['Classificação'].isnull()])
             self.data = self.data.dropna(subset=['Classificação'])
 
-        print("Distribuição das classes antes do balanceamento:")
+        print("Distribuição das classes:")
         print(self.data['Classificação'].value_counts())
 
         # Extrair o número do paciente e características
@@ -47,22 +47,6 @@ class XGBoostCrossValidation:
         self.y = self.data['Classificação'].values
         self.groups = self.data['Paciente'].values
 
-        # Balancear os dados usando SMOTE
-        smote = SMOTE(random_state=42)
-        self.X, self.y = smote.fit_resample(self.X, self.y)
-
-        # Atualizar os grupos após balanceamento
-        original_groups = self.groups
-        additional_groups = np.random.choice(original_groups, len(self.y) - len(original_groups))
-        self.groups = np.concatenate([original_groups, additional_groups])
-
-        # Atualizar índices originais para os dados balanceados
-        original_indices = self.data['OriginalIndex'].values
-        additional_indices = np.random.choice(original_indices, len(self.y) - len(original_indices))
-        self.original_indices = np.concatenate([original_indices, additional_indices])
-
-        print("Distribuição das classes após balanceamento:")
-        print(pd.Series(self.y).value_counts())
         print(f"Dados carregados: {self.X.shape[0]} amostras, {self.X.shape[1]} características.")
 
 
@@ -74,70 +58,77 @@ class XGBoostCrossValidation:
         specificities = []
         confusion_matrices = []
 
-        # Loop para cada paciente como conjunto de teste
-        for fold, test_patient in enumerate(unique_patients):
-            # Separar todas as linhas (imagens) do paciente atual para teste
-            test_idx = np.where(self.groups == test_patient)[0]
-            X_test, y_test = self.X[test_idx], self.y[test_idx]
-            test_original_indices = self.original_indices[test_idx]  # Índices originais
+        # Arquivo para salvar os resultados
+        results_file = "cross_validation_results.csv"
+        with open(results_file, "w", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerow(["Fold", "Patient", "Accuracy", "Recall", "Specificity"])
 
-            # Separar todas as linhas (imagens) dos outros pacientes para treino
-            train_idx = np.where(self.groups != test_patient)[0]
-            X_train, y_train = self.X[train_idx], self.y[train_idx]
-            train_original_indices = self.original_indices[train_idx]  # Índices originais
+            # Loop para cada paciente como conjunto de teste
+            for fold, test_patient in enumerate(unique_patients):
+                # Separar todas as linhas (imagens) do paciente atual para teste
+                test_idx = np.where(self.groups == test_patient)[0]
+                X_test, y_test = self.X[test_idx], self.y[test_idx]
+                test_original_indices = self.data['OriginalIndex'][test_idx]  # Índices originais
 
-            print(f"\nFold {fold + 1}: Paciente de Teste={test_patient}")
-            print(f"Índices Originais de Teste: {test_original_indices.tolist()}")
-            print(f"Índices Originais de Treinamento: {train_original_indices.tolist()}")
-            print(f"Número de Amostras no Treino: {len(train_idx)}, Teste: {len(test_idx)}")
+                # Separar todas as linhas (imagens) dos outros pacientes para treino
+                train_idx = np.where(self.groups != test_patient)[0]
+                X_train, y_train = self.X[train_idx], self.y[train_idx]
+                train_original_indices = self.data['OriginalIndex'][train_idx]  # Índices originais
 
-            # Verificar a presença de ambas as classes no conjunto de treinamento
-            if len(np.unique(y_train)) < 2:
-                print(f"Aviso: Apenas uma classe presente no treinamento (Paciente {test_patient}). Pulando.")
-                continue
+                print(f"Fold {fold + 1}: Paciente de Teste={test_patient}")
+                print(f"Número de Amostras no Treino: {len(train_idx)}, Teste: {len(test_idx)}")
 
-            # Configurar o modelo XGBoost
-            scale_pos_weight = len(y_train[y_train == 0]) / len(y_train[y_train == 1])
-            model = xgb.XGBClassifier(
-                use_label_encoder=False,
-                eval_metric='logloss',
-                max_depth=6,
-                learning_rate=0.1,
-                scale_pos_weight=scale_pos_weight,
-                n_estimators=200,
-                random_state=42
-            )
+                # Verificar a presença de ambas as classes no conjunto de treinamento
+                if len(np.unique(y_train)) < 2:
+                    print(f"Aviso: Apenas uma classe presente no treinamento (Paciente {test_patient}). Pulando.")
+                    continue
 
-            # Treinar o modelo
-            model.fit(X_train, y_train)
+                # Configurar o modelo XGBoost
+                scale_pos_weight = len(y_train[y_train == 0]) / len(y_train[y_train == 1])
+                model = xgb.XGBClassifier(
+                    use_label_encoder=False,
+                    eval_metric='logloss',
+                    max_depth=6,
+                    learning_rate=0.1,
+                    scale_pos_weight=scale_pos_weight,
+                    n_estimators=200,
+                    random_state=42
+                )
 
-            # Fazer previsões
-            y_pred = model.predict(X_test)
+                # Treinar o modelo
+                model.fit(X_train, y_train)
 
-            # Calcular a matriz de confusão com todas as classes
-            cm = confusion_matrix(y_test, y_pred, labels=[0, 1])
-            tn, fp, fn, tp = cm.ravel()
+                # Fazer previsões
+                y_pred = model.predict(X_test)
 
-            # Calcular métricas
-            acc = accuracy_score(y_test, y_pred)
-            recall = recall_score(y_test, y_pred, zero_division=0)
-            specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+                # Calcular a matriz de confusão com todas as classes
+                cm = confusion_matrix(y_test, y_pred, labels=[0, 1])
+                tn, fp, fn, tp = cm.ravel()
 
-            # Salvar métricas para este paciente
-            accuracies.append(acc)
-            recalls.append(recall)
-            specificities.append(specificity)
-            confusion_matrices.append(cm)
+                # Calcular métricas
+                acc = accuracy_score(y_test, y_pred)
+                recall = recall_score(y_test, y_pred, zero_division=0)
+                specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
 
-            # Exibir resultados para o paciente em teste
-            print(f"Paciente de Teste={test_patient}, "
-                f"Acurácia={acc:.4f}, Sensibilidade={recall:.4f}, Especificidade={specificity:.4f}")
+                # Salvar métricas para este paciente
+                accuracies.append(acc)
+                recalls.append(recall)
+                specificities.append(specificity)
+                confusion_matrices.append(cm)
+
+                # Salvar os resultados no CSV
+                writer.writerow([fold + 1, test_patient, acc, recall, specificity])
+
+                # Exibir resultados para o paciente em teste
+                print(f"Paciente de Teste={test_patient}, "
+                    f"Acurácia={acc:.4f}, Sensibilidade={recall:.4f}, Especificidade={specificity:.4f}")
 
         # Calcular métricas médias gerais
         avg_accuracy = np.mean(accuracies)
         avg_recall = np.mean(recalls)
         avg_specificity = np.mean(specificities)
-        print("\nResultados Médios após Validação Cruzada:")
+        print("Resultados Médios após Validação Cruzada:")
         print(f"Acurácia Média: {avg_accuracy:.4f}")
         print(f"Sensibilidade Média: {avg_recall:.4f}")
         print(f"Especificidade Média: {avg_specificity:.4f}")
@@ -145,8 +136,7 @@ class XGBoostCrossValidation:
         # Matriz de Confusão Agregada
         aggregated_cm = np.sum(confusion_matrices, axis=0)
         self.plot_confusion_matrix(aggregated_cm, ["Saudável", "Esteatose"], "Matriz de Confusão Agregada")
-        print(f"Matriz de Confusão Agregada:\n{aggregated_cm}")
-
+        print(f"Matriz de Confusão Agregada:{aggregated_cm}")
 
 
     @staticmethod
