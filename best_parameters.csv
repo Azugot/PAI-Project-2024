@@ -1,0 +1,2 @@
+feature_selection__k,classifier__subsample,classifier__n_estimators,classifier__min_child_weight,classifier__max_depth,classifier__learning_rate,classifier__gamma,classifier__colsample_bytree
+all,0.6,300,3,5,0.01,0.1,0.6
