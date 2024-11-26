@@ -207,7 +207,7 @@ class CrossValidationTraining:
             confusion_matrix_path = os.path.join(fold_confusion_dir, f'epoch_{epoch + 1}.png')
             plt.savefig(confusion_matrix_path)
             plt.close()
-            print(f'Matriz de confusão da Época {epoch + 1} salva em {confusion_matrix_path}')
+            #print(f'Matriz de confusão da Época {epoch + 1} salva em {confusion_matrix_path}')
             # Fim da adição
 
             val_epoch_loss = metrics_per_epoch['val_loss'][-1]
@@ -305,18 +305,34 @@ class CrossValidationTraining:
 
     def save_results(self):
         self.save_aggregated_metrics()
-        mean_metrics = {key: (np.mean(values), np.std(values)) for key, values in self.metrics.items()
-                        if isinstance(values, list) and values}
+
+        # Defina as chaves que contêm métricas escalares por fold
+        scalar_keys = [
+            'accuracies', 'precisions', 'recalls', 'f1_scores',
+            'aurocs', 'sensitivities', 'specificities', 'training_times'
+        ]
+
+        # Calcule a média e o desvio padrão apenas para as métricas escalares
+        mean_metrics = {
+            key: (np.mean(values), np.std(values)) 
+            for key, values in self.metrics.items()
+            if key in scalar_keys and isinstance(values, list) and values
+        }
+
         self.trainings_array.append(mean_metrics['accuracies'][0])
+
         if self.metrics['confusion_matrices']:
             total_cm = np.sum(self.metrics['confusion_matrices'], axis=0)
             self.save_aggregated_confusion_matrix(total_cm)
+
         self.save_overall_metrics(mean_metrics)
+
         print(f'\nProcesso concluído. Resultados salvos na pasta {self.experiment_name}.')
         print('\nMétricas após Validação Cruzada:')
         for metric in ['accuracies', 'precisions', 'recalls', 'f1_scores', 'aurocs', 'sensitivities', 'specificities']:
             mean, std = mean_metrics[metric]
             print(f'{metric.capitalize()[:-1]} Média: {mean:.4f} ± {std:.4f}')
+
 
     def save_aggregated_metrics(self):
         metrics = ['Accuracies', 'Losses']
@@ -395,9 +411,9 @@ if __name__ == "__main__":
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
-    dataset = ROIDataset('ROISavedFiles', transform=data_transforms, include_rotations=False)
+    dataset = ROIDataset('ROISavedFiles', transform=data_transforms, include_rotations=True)
     hyperparameter_sets = [
-        {'num_epochs': 1, 'batch_size': 64, 'learning_rate': 0.001},
+        {'num_epochs': 2, 'batch_size': 64, 'learning_rate': 0.002},
         # {'num_epochs': 10, 'batch_size': 64, 'learning_rate': 0.002},
         # {'num_epochs': 10, 'batch_size': 64, 'learning_rate': 0.004}
     ]
