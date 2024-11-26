@@ -57,7 +57,7 @@ for filename in os.listdir(test_folder):
             match = re.match(pattern, filename)
             if match:
                 patient_number = int(match.group(1))
-                true_class = 0 if patient_number <= 16 else 1  # Determinar a classe verdadeira
+                true_class = 0 if patient_number <= 15 else 1  # Determinar a classe verdadeira
                 all_labels.append(true_class)
 
                 # Carregar e transformar a imagem
