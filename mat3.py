@@ -1,3 +1,4 @@
+import time
 import os
 import pandas as pd
 import numpy as np
@@ -10,6 +11,9 @@ from imblearn.under_sampling import RandomUnderSampler
 from xgboost import XGBClassifier
 import matplotlib.pyplot as plt
 import seaborn as sns
+
+# Início do temporizador
+start_time = time.time()
 
 # Definir a pasta de saída para os gráficos
 output_folder = './XGBoost'
@@ -179,12 +183,7 @@ plt.title("Matriz de Confusão - Validação Cruzada (Agregada)")
 plt.savefig(os.path.join(output_folder, 'confusion_matrix_cv.png'))  # Salvar gráfico
 plt.close()
 
-# Importância das features
-best_model = random_search.best_estimator_.named_steps['classifier']
-selected_features = random_search.best_estimator_.named_steps['feature_selection']
-feature_mask = selected_features.get_support()
-selected_feature_names = X_train_no_patient.columns[feature_mask]
-
-plt.figure(figsize=(12, 6))
-plt.title('Top 15 Features Mais Importantes')
-plt.close()
+# Fim do temporizador
+end_time = time.time()
+execution_time = end_time - start_time
+print(f"\nTempo total de execução: {execution_time:.2f} segundos")
