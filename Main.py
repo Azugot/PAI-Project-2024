@@ -1931,9 +1931,10 @@ class CropApp:
                 transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
             ])
 
-            # Variáveis para cálculo da acurácia
-            all_labels = []  # Classes verdadeiras
-            all_predictions = []  # Classes preditas
+            # Variáveis para cálculo das métricas
+            all_labels = []        # Classes verdadeiras
+            all_predictions = []   # Classes preditas
+            all_probabilities = [] # Probabilidades preditas
 
             # Iterar sobre todas as imagens na pasta
             results = []  # Para armazenar os resultados
@@ -1965,6 +1966,7 @@ class CropApp:
 
                             # Salvar a classe predita
                             all_predictions.append(predicted_class)
+                            all_probabilities.append(probabilities.cpu().numpy())
 
                             # Salvar os resultados
                             results.append((filename, true_class, predicted_class, probabilities.cpu().numpy()))
@@ -1979,12 +1981,26 @@ class CropApp:
                     except Exception as e:
                         self.displayMessage(window, f"Error processing {filename}: {e}", "red")
 
-            # Calcular a acurácia total
+            # Calcular as métricas
             if all_labels and all_predictions:
                 accuracy = accuracy_score(all_labels, all_predictions)
+                precision = precision_score(all_labels, all_predictions, zero_division=0)
+                recall = recall_score(all_labels, all_predictions, zero_division=0)  # Sensibilidade
+                f1 = f1_score(all_labels, all_predictions, zero_division=0)
+                cm = confusion_matrix(all_labels, all_predictions)
+                if cm.shape == (2, 2):
+                    tn, fp, fn, tp = cm.ravel()
+                    specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+                else:
+                    specificity = 0.0
+
                 self.displayMessage(window, f"\nTotal Accuracy on Test Set: {accuracy:.4f}", "green")
+                self.displayMessage(window, f"Precision: {precision:.4f}", "green")
+                self.displayMessage(window, f"Sensitivity (Recall): {recall:.4f}", "green")
+                self.displayMessage(window, f"Specificity: {specificity:.4f}", "green")
+                self.displayMessage(window, f"F1 Score: {f1:.4f}", "green")
             else:
-                self.displayMessage(window, "\nCannot calculate accuracy due to insufficient data.", "red")
+                self.displayMessage(window, "\nCannot calculate metrics due to insufficient data.", "red")
 
             # Salvar os resultados em um arquivo CSV
             output_csv = 'test_results.csv'
@@ -2003,6 +2019,8 @@ class CropApp:
                 disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['Healthy', 'Fatty'])
                 disp.plot(ax=ax, cmap=plt.cm.Blues, colorbar=False)
                 plt.title("Confusion Matrix")
+                plt.show()
+
         except Exception as e:
             self.displayMessage(window, f"Error during testing: {e}", "red")
 
