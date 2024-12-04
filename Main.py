@@ -919,6 +919,7 @@ class CropApp:
             matImage = cv2.cvtColor(matImage, cv2.COLOR_BGR2GRAY)
 
         #Pega a altura e a largura da imagem e o total de pixels
+        # pega dimensoes para poder percorrer a imagem
         height, width = matImage.shape
         total_pixels = height * width
 
@@ -926,6 +927,7 @@ class CropApp:
         hist = np.zeros(256, dtype=int)
         
         # Percorre cada pixel e incrementando a posição
+        # pega cada tom de cinza da imagem e conta quantas vezes ele acontece
         for i in range(height):
             for j in range(width):
                 intensity_value = matImage[i, j]
@@ -943,6 +945,7 @@ class CropApp:
         ax.set_ylabel('Number of Pixels')
 
         # Define o limite superior do eixo y como 110% do valor do percentil 95 do histograma para visualização melhorada
+        # suavizacao do histograma para tons que estejam muito fortes - elimina 5% dos valores de tons de cinza mais intensos
         max_value = np.percentile(hist, 95)
         ax.set_ylim([0, max_value * 1.1])
 
@@ -1180,6 +1183,7 @@ class CropApp:
         print("Marque a segunda ROI (rim)")
 
 
+    # marcacao do quadradinho da ROI
     def startDrawROI(self, event):
         # Pega o clique inicial
         self.startX = event.x
@@ -1200,6 +1204,7 @@ class CropApp:
         self.chooseRoi.config(text="SELECT KIDNEY ROI (ROI 2)")
         self.imageArea.bind("<Button-1>", self.startDrawROI2)
 
+    # depois de marcar uma ROI, marca a segunda e finaliza marcacao de quadradinhos
     def finishDrawROI(self, event):
         #salva as coordenadas da primeira roi
         self.roi1 = (self.startX-14, self.startY-14, self.startX+14, self.startY+14)
@@ -1242,6 +1247,7 @@ class CropApp:
         self.imageArea.unbind("<B1-Motion>")
         print("Ambas as ROIs foram selecionadas.")
 
+    # formatacao do quadradinho da ROI
     def drawROIFixed(self, event):
         if (self.roiOn):
             self.deleteROIarea()
@@ -1252,6 +1258,7 @@ class CropApp:
             self.areaROI = self.imageArea.create_rectangle(self.startX-14, self.startY-14, self.startX+14, self.startY+14, outline="green", width=2)
 
     #TODO: Fix this method for generic Images
+    # obtem as coordenadas de cada ROI
     def acquireROI(self, roi_coords):
         x1, y1, x2, y2 = roi_coords
         x1, y1 = map(int, [max(0, x1), max(0, y1)])
@@ -1502,6 +1509,8 @@ class CropApp:
         hist_widget.pack(fill=tk.BOTH, expand=False, padx=10, pady=10)
         hist_widget.config(width=histWidth*1.5, height=histHeight)
 
+
+    # GLCM = matriz de coocorrencia de um conjunto de pixeis em escala cinza
     def displayRadialGLCMInROIWindow(self, roiPath, histogramFrame=None, distances=[1, 2, 4, 8]):
         global global_glcm_properties
         global_glcm_properties = []
@@ -1565,6 +1574,7 @@ class CropApp:
                     featuresLabel.pack(pady=5)
 
 
+    # SFM = 
     def displaySFMPropertiesInROIWindow(self, roiPath, ROIDisplay=None):
             global global_sfm_properties
             global_sfm_properties = {}
@@ -1572,26 +1582,31 @@ class CropApp:
             # Carrega a imagem da ROI
             roiImage = cv2.imread(roiPath, cv2.IMREAD_GRAYSCALE)
 
-            # Coarseness - usando filtro de média e variância local
+            # Coarseness - usando filtro de média e variância local -> usado para suavizar a imagem
             kernel_size = 3
+            # faz a media entre o valor total de pixeis da ROI e divide pelo tamanho da KERNEL -> é uma media aritmetica
             local_mean = cv2.blur(roiImage, (kernel_size, kernel_size))
+            # faz a media do numero total de pixels subtraido pelo valor da media de pixeis da imagem (elevado a 2 para nao dar valor negativo e para pegar conjuntos
+            # de pixels que sejam mais diferentes entre si) dividido pelo tamanho da kernel
             local_var = cv2.blur((roiImage - local_mean)**2, (kernel_size, kernel_size))
+            # media local dos valores sobre a ROI toda -> um valor alto indica que a media dos pixeis tem grande variação em relacao a media local (textura mais grossa),
+            # enquanto um valor mais baixo indica uma menor variacao em relacao a media local (textura mais fina)
             coarseness = np.mean(local_var)
 
             # Contrast - calculado com a GLCM
             glcm = graycomatrix(roiImage, distances=[1], angles=[0], levels=256, symmetric=True, normed=True)
             contrast = greycoprops(glcm, 'contrast')[0, 0]
 
-            # Periodicity - usando transformada de Fourier
-            f_transform = np.fft.fft2(roiImage)
-            f_transform_shifted = np.fft.fftshift(f_transform)
-            magnitude_spectrum = np.abs(f_transform_shifted)
-            periodicity = np.mean(magnitude_spectrum)
+            # Periodicity - usando transformada de Fourier -> analisa as frequencias da imagem
+            f_transform = np.fft.fft2(roiImage) # -> calculo de Fourrier
+            f_transform_shifted = np.fft.fftshift(f_transform) # -> coloca as frequencias mais baixas no centro pra facilitar os calculos e as metricas -> as frequancias altas ficam ao redor
+            magnitude_spectrum = np.abs(f_transform_shifted) # -> pega a intensidade de cada frequencia na imagem -> a frequencia esta relacionada diretamente aos padroes presentes na textura da imagem (se tem muita borda ou se eh uma imagem mais homogenea com pouca borda) -> uma frequencia baixa eh uma parte homogenea e uma frequencia alta eh uma borda
+            periodicity = np.mean(magnitude_spectrum) # -> calcula a media de todos os valores da magnitude_spectrum (intensidades das frequencias)
 
-            # Roughness - média dos gradientes locais
-            grad_x = cv2.Sobel(roiImage, cv2.CV_64F, 1, 0, ksize=3)
-            grad_y = cv2.Sobel(roiImage, cv2.CV_64F, 0, 1, ksize=3)
-            roughness = np.mean(np.sqrt(grad_x**2 + grad_y**2))
+            # Roughness - média dos gradientes locais -> mede a irregularidade / o quao aspera eh a textura
+            grad_x = cv2.Sobel(roiImage, cv2.CV_64F, 1, 0, ksize=3) # -> calcula o gradiente da imagem na horizontal (gradiente = calcula diferença na intensidade entre pixels vizinhos e o quao rapido essa intensidade muda)
+            grad_y = cv2.Sobel(roiImage, cv2.CV_64F, 0, 1, ksize=3) # -> calcula o gradiente da imagem na vertical
+            roughness = np.mean(np.sqrt(grad_x**2 + grad_y**2)) # -> faz a media
 
             # Armazena as propriedades na variavel global
             global_sfm_properties = {
