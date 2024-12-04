@@ -80,15 +80,18 @@ class ShallowModel:
     
     # Remoção de features altamente correlacionadas
     def remove_highly_correlated_features(self, df, numeric_columns, threshold=0.95):
-        corr_matrix = df[numeric_columns].corr().abs()
-        upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
-        to_drop = [column for column in upper.columns if any(upper[column] > threshold)]
+        corr_matrix = df[numeric_columns].corr().abs()#calcula a matriz de correlacao -> .corr() remover todas as colunas numéricas especificadas -> abs() garantir que estamos lidando com os valores absolutos
+        upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool)) #vai mandar a parte dos elementos acima da diagonal principal, com a matriz de correlacao simetrica ela vai ajudar a remover elementos duplicados
+        to_drop = [column for column in upper.columns if any(upper[column] > threshold)] #Vai indentificar as colunas a serem removidas, contendo os nomes das colunas que possuem correlação maior que o limite definido 
         return df.drop(columns=to_drop)
     
     # Função para adicionar interações
+    #idade x renda tem relacao
+    #Nem todas as relações entre variáveis e o resultado são lineares. Multiplicar duas variáveis pode ajudar a capturar interações importantes que influenciam o modelo.
+    #10 nao é um numero grande e isso ajuda a gente a nao ter nuneros malucos de colunas
     def add_interaction_features(self, df, numeric_cols, max_interactions=10):
         interactions = []
-        for i in range(len(numeric_cols)):
+        for i in range(len(numeric_cols)):#combinacoes numericas
             for j in range(i+1, len(numeric_cols)):
                 col1, col2 = numeric_cols[i], numeric_cols[j]
                 interaction_name = f'{col1}_{col2}_interaction'
@@ -166,24 +169,27 @@ class ShallowModel:
                 ('feature_selection', SelectKBest(f_classif, k='all')),
                 ('sampling', RandomUnderSampler(random_state=42)),
                 ('classifier', XGBClassifier(eval_metric="logloss"))
-            ])
+            ]) #fluxo de processamento
+                #Seleciona as Features
+                #Faz o banlanciamento 
     
             # Espaço de busca para RandomizedSearchCV
             param_dist = {
-                'feature_selection__k': [10, 12, 15, 'all'],
-                'classifier__n_estimators': [100, 200, 300],
-                'classifier__max_depth': [3, 4, 5, 6, 7],
-                'classifier__learning_rate': [0.01, 0.05, 0.1],
-                'classifier__min_child_weight': [1, 3, 5],
-                'classifier__subsample': [0.6, 0.8, 1.0],
-                'classifier__colsample_bytree': [0.6, 0.8, 1.0],
-                'classifier__gamma': [0, 0.1, 0.2]
+                'feature_selection__k': [10, 12, 15, 'all'],#melhores features
+                'classifier__n_estimators': [100, 200, 300],#define o num de arvores
+                'classifier__max_depth': [3, 4, 5, 6, 7],#profundida da arvore
+                'classifier__learning_rate': [0.01, 0.05, 0.1],#controla a quantidade de pesos que o modelo pode mudar durante o treinamento
+                'classifier__min_child_weight': [1, 3, 5],#peso minimo
+                'classifier__subsample': [0.6, 0.8, 1.0],#fraca de amostra que serao usadas para treinar cada arvore
+                'classifier__colsample_bytree': [0.6, 0.8, 1.0], #quais features serao consideradas, testa 60% ate q todas as outras estejam disponiveis
+                'classifier__gamma': [0, 0.1, 0.2] #Ganho minimo pra fazer uma divisao de um no
             }
     
+            #teste combinacoes aleatorias de parametros no espaco de busca definido 
             random_search = RandomizedSearchCV(
                 pipeline,
                 param_distributions=param_dist,
-                n_iter=50,
+                n_iter=50,#numero de indetacoes que sarao testadas
                 cv=GroupKFold(n_splits=5),
                 scoring='f1_weighted',
                 n_jobs=-1,
@@ -192,17 +198,17 @@ class ShallowModel:
             )
     
             # Ajuste do RandomizedSearchCV no conjunto de treino
-            X_train_no_patient = X_train.drop(columns=['Paciente'])
-            train_groups = X_train['Paciente']
-            random_search.fit(X_train_no_patient, y_train, groups=train_groups)
+            X_train_no_patient = X_train.drop(columns=['Paciente'])#remove
+            train_groups = X_train['Paciente']#vamos grantir q a alidacao cruzada vai acontecer, e vai respeitar os grupos
+            random_search.fit(X_train_no_patient, y_train, groups=train_groups)#testa diferentes combinacoes de hiperparâmetros
     
             # Melhor modelo encontrado
             print("\nMelhores parâmetros encontrados:")
             print(random_search.best_params_)
     
             # Avaliação no conjunto de teste
-            X_test_no_patient = X_test.drop(columns=['Paciente'])
-            y_pred = random_search.predict(X_test_no_patient)
+            X_test_no_patient = X_test.drop(columns=['Paciente'])#remove
+            y_pred = random_search.predict(X_test_no_patient)#faz previsoes para o conjunto de teste usando o mlehor modelo encontrado durate o ajuste 
     
             print("\nRelatório de Classificação - Conjunto de Teste:")
             print(classification_report(y_test, y_pred, target_names=['Saudável', 'Esteatose']))
@@ -222,18 +228,22 @@ class ShallowModel:
             all_y_true = []
             all_y_pred = []
     
+            #separa em 5 folds, garante q os dados de um mesmo paciente nao apareca ao mesmo tempo no treinamento e na validacao
+            #groups é usado para separar os dados do pacintes 
+            #train_index
+            #
             for train_index, val_index in GroupKFold(n_splits=5).split(X_train_no_patient, y_train, groups=train_groups):
                 X_train_fold, X_val_fold = X_train_no_patient.iloc[train_index], X_train_no_patient.iloc[val_index]
                 y_train_fold, y_val_fold = y_train.iloc[train_index], y_train.iloc[val_index]
     
-                pipeline.set_params(**random_search.best_params_)
-                pipeline.fit(X_train_fold, y_train_fold)
-                y_pred_fold = pipeline.predict(X_val_fold)
+                pipeline.set_params(**random_search.best_params_)#atualizar os mesmo parametros encontrados dureante a otimizacao
+                pipeline.fit(X_train_fold, y_train_fold) #treina pre-processamento e o modelo no subconjunto de treinamento atual
+                y_pred_fold = pipeline.predict(X_val_fold)#O pipeline treinado faz previsões (y_pred_fold) no subconjunto de validação atual.
     
-                all_y_true.extend(y_val_fold)
+                all_y_true.extend(y_val_fold) #armazena os rotulos
                 all_y_pred.extend(y_pred_fold)
     
-                cm_fold = confusion_matrix(y_val_fold, y_pred_fold)
+                cm_fold = confusion_matrix(y_val_fold, y_pred_fold) #matriz
                 if cm_fold.shape == (2, 2):
                     tn, fp, fn, tp = cm_fold.ravel()
                     accuracies.append(accuracy_score(y_val_fold, y_pred_fold))
