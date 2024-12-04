@@ -395,14 +395,19 @@ class CrossValidationTraining:
         os.makedirs(self.confusionMatricesDir, exist_ok=True)
 
     def train(self):
+        # Imprime o dispositivo sendo usado (CPU ou GPU)
         print(f'Usando dispositivo: {self.device}')
         print('\nIniciando o treinamento com validação cruzada...\n')
         
+        # Determina o número total de folds baseado nos pacientes únicos
         totalFolds = len(set(self.dataset.patients))
         
+        # Itera sobre cada fold usando Leave-One-Group-Out
         for fold, (trainIdx, testIdx) in enumerate(self.logo.split(np.arange(len(self.dataset)), groups=self.dataset.patients)):
+            # Inicia o temporizador para o fold atual
             startTime = time.time()
             
+            # Identifica o paciente de teste
             testPatient = self.dataset.patients[testIdx[0]]
             testPatientIndices = [idx for idx in testIdx if self.dataset.patients[idx] == testPatient]
             if not testPatientIndices:
@@ -412,29 +417,33 @@ class CrossValidationTraining:
             print(f'\nFold {fold + 1}/{totalFolds}:')
             print(f' - Número de imagens de teste: {len(testPatientIndices)}')
             
-            #Balanceamento do conjunto de treino, pra nao ficar muito pra um lado ou pro outro
+            # Balanceia o conjunto de treino para evitar desequilíbrio entre classes
             trainIndices = [idx for idx in trainIdx if self.dataset.patients[idx] != testPatient]
             balancedTrainIdx = self.balanceDataset(trainIndices)
             trainSubset = Subset(self.dataset, balancedTrainIdx)
             testSubset = Subset(self.dataset, testPatientIndices)
             print(f' - Número de imagens de treino balanceadas: {len(trainSubset)}')
             
-            #Carrega os dados de treino e teste
+            # Cria os DataLoaders para treino e teste
             trainLoader = DataLoader(trainSubset, batch_size=self.batchSize, shuffle=True)
             testLoader = DataLoader(testSubset, batch_size=self.batchSize, shuffle=False)
+            
+            # Inicializa o modelo, a função de perda e o otimizador
             model = self.initializeModel()
             criterion = nn.CrossEntropyLoss()
             optimizer = optim.Adam(model.parameters(), lr=self.learningRate)
             
-            # Criação do diretório específico para o fold atual
+            # Cria o diretório específico para armazenar as matrizes de confusão do fold atual
             foldConfusionDir = os.path.join(self.confusionMatricesDir, f'fold_{fold + 1}')
             os.makedirs(foldConfusionDir, exist_ok=True)
+            
+            # Treina o modelo no fold atual
             self.trainModel(
                 model, criterion, optimizer, trainLoader, testLoader,
                 fold, totalFolds, testPatient, startTime, foldConfusionDir
             )
         
-        #Salva os resultados finais e pegar o modelo treinado
+        # Salva os resultados finais e o modelo treinado após todos os folds
         self.saveResults()
         torch.save(model.state_dict(), os.path.join(self.finalResultsDir, 'final_model.pth'))
         print(f'Modelo final salvo em {os.path.join(self.finalResultsDir, "final_model.pth")}')
@@ -555,45 +564,53 @@ class CrossValidationTraining:
 
     #Funcao que roda o modelo por epoca
     def runEpoch(self, model, criterion, optimizer, loader, progressBar, epoch, metrics, mode='train'):
+        # Determina se o modo é treinamento ou avaliação
         isTrain = mode == 'train'
         model.train() if isTrain else model.eval()
+        
+        # Inicializa métricas em execução
         runningCorrects = 0
         runningLoss = 0.0
         allPreds = []
         allLabels = []
         allProbs = []
         
-        
+        # Itera sobre o carregador de dados
         for inputs, labels, _, _ in loader:
+            # Move os inputs e labels para o dispositivo
             inputs = inputs.to(self.device)
             labels = labels.to(self.device)
             
             if isTrain:
                 optimizer.zero_grad()
             
+            # Habilita o gradiente apenas durante o treinamento
             with torch.set_grad_enabled(isTrain):
-                outputs = model(inputs)
-                _, preds = torch.max(outputs, 1)
-                loss = criterion(outputs, labels)
+                outputs = model(inputs) # Passagem para frente
+                _, preds = torch.max(outputs, 1) # Previsões
+                loss = criterion(outputs, labels) # Cálculo da perda (loss) para a epoca atual
                 if isTrain:
+                    # Passagem backward e passo de otimização
                     loss.backward()
                     optimizer.step()
+            
+            # Atualiza a perda em execução e as previsões corretas
             runningCorrects += torch.sum(preds == labels.data)
             runningLoss += loss.item() * inputs.size(0)
             
-            #UPDATE DA BARRA DE PROGRESSO
+            # Atualiza a barra de progresso com a perda atual e a época
             progressBar.update(1)
             progressBar.set_postfix({'Loss': loss.item(), 'Época': epoch + 1})
             
             #Modo de Validacao
             if not isTrain:
-                #adiciona as predicoes, labels e probabilidades
+                # Coleta previsões, labels verdadeiros e probabilidades para avaliação
                 allPreds.extend(preds.cpu().numpy())
                 allLabels.extend(labels.cpu().numpy())
                 
                 allProbs.extend(torch.softmax(outputs, dim=1)[:, 1].detach().cpu().numpy())
         
-        #Calcula as metricas de acuracia e perda
+        # Calcula a perda média e a precisão para a época
         epochLoss = runningLoss / len(loader.dataset)
         epochAcc = runningCorrects.double() / len(loader.dataset)
         metrics[f'{mode}_acc'].append(epochAcc.item())
@@ -601,6 +618,7 @@ class CrossValidationTraining:
         
         
         if not isTrain:
+            # Armazena todas as previsões, labels e probabilidades para análise posterior
             metrics['all_preds'] = allPreds
             metrics['all_labels'] = allLabels
             metrics['all_probs'] = allProbs
