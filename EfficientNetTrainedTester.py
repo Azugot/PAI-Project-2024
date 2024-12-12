@@ -21,7 +21,7 @@ model.classifier[1] = torch.nn.Linear(num_ftrs, 2)
 model = model.to(device)
 
 # Carregar os pesos do modelo treinado
-path = '2_Epochs_64_BatchSize_0.001_LR'
+path = '1_Epochs_64_BatchSize_0.001_LR'
 model.load_state_dict(torch.load(f'./Training Iterations/{path}/FinalResults/final_model.pth', map_location=device))
 model.eval()
 
